@@ -1,9 +1,0 @@
-# GitHub Pages configuration
-# This file ensures GitHub Pages is properly configured for DocFX deployment
-
-# The workflow will automatically:
-# 1. Build your DocFX documentation
-# 2. Deploy it to GitHub Pages
-# 3. Make it available at: https://ifbars.github.io/SteamNetworkLib/
-
-# No additional configuration needed - the workflow handles everything!
