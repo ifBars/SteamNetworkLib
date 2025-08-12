@@ -1,14 +1,5 @@
 # Security Policy
 
-## Supported Versions
-
-The following versions of SteamNetworkLib are currently supported with security updates:
-
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
-
 ## Reporting a Vulnerability
 
 If you discover a security vulnerability in SteamNetworkLib, please follow these steps:
