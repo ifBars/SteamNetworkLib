@@ -15,26 +15,13 @@ If you discover a security vulnerability in SteamNetworkLib, please follow these
 
 ### 🔒 Private Reporting (Recommended)
 
-1. **Use GitHub's Security tab** - Go to the [Security tab](../../security) in this repository
-2. **Click "Report a vulnerability"** to create a private security advisory
-3. **Provide detailed information** including:
-   - A clear description of the vulnerability
-   - Steps to reproduce the issue
-   - Potential impact assessment
-   - Suggested fix (if you have one)
+If you discover a security vulnerability, please **direct message (DM) ifbars on Discord** with the details.
 
-### ✉️ Alternative Contact
-
-If you cannot use GitHub's security reporting feature, you can:
-- Create a **private** issue by contacting the maintainers through GitHub
-- **Do not create a public issue** for security vulnerabilities
-
-## Response Timeline
-
-- **Acknowledgment**: You'll receive confirmation within **48 hours**
-- **Initial Assessment**: We'll provide an initial assessment within **72 hours**
-- **Resolution**: We aim to address critical vulnerabilities within **7 days**
-- **Updates**: You'll be kept informed throughout the process
+When reporting, please include:
+- A clear description of the vulnerability
+- Steps to reproduce the issue
+- Potential impact assessment
+- Suggested fix (if you have one)
 
 ## What Happens Next
 
@@ -75,10 +62,6 @@ The following are generally **not** considered security vulnerabilities:
 - Physical attacks
 - Denial of Service attacks
 - Issues requiring physical access to a user's device
-
-## Bug Bounty
-
-Currently, we do not offer a bug bounty program, but we greatly appreciate responsible disclosure and will acknowledge your contribution.
 
 ## Contact
 
