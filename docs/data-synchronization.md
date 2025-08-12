@@ -9,7 +9,7 @@ Use lobby-wide and per-player key-value data for lightweight shared state like v
 client.SetLobbyData("mod_version", "1.0.0");
 
 // Read by anyone
-var gameMode = client.GetLobbyData("mod_version");
+string modVersion = client.GetLobbyData("mod_version");
 ```
 
 ## Per-player data
@@ -19,13 +19,13 @@ var gameMode = client.GetLobbyData("mod_version");
 client.SetMyData("name", "bob");
 
 // Read for self
-var myClass = client.GetMyData("name");
+string myClass = client.GetMyData("name");
 
 // Read for any specific player
-var otherClass = client.GetPlayerData(playerId, "name");
+string otherClass = client.GetPlayerData(playerId, "name");
 
 // Read the same key for everyone
-var allClasses = client.GetDataForAllPlayers("name");
+Dictionary<CSteamID, string> allClasses = client.GetDataForAllPlayers("name");
 ```
 
 ## Change events

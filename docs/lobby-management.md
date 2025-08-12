@@ -5,11 +5,11 @@ This page covers creating, joining, leaving, and inviting players to Steam lobbi
 ## Quick start
 
 ```csharp
-var client = new SteamNetworkClient();
+SteamNetworkClient client = new SteamNetworkClient();
 client.Initialize();
 
 // Create a friends-only lobby with up to 8 members
-var lobby = await client.CreateLobbyAsync(ELobbyType.k_ELobbyTypeFriendsOnly, 8);
+LobbyInfo lobby = await client.CreateLobbyAsync(ELobbyType.k_ELobbyTypeFriendsOnly, 8);
 
 // Join an existing lobby
 await client.JoinLobbyAsync(lobbyId);
@@ -18,7 +18,7 @@ await client.JoinLobbyAsync(lobbyId);
 client.LeaveLobby();
 
 // Read current members
-var members = client.GetLobbyMembers();
+List<MemberInfo> members = client.GetLobbyMembers();
 
 // Invite a friend or open Steam overlay invite
 client.InviteFriend(friendId);
