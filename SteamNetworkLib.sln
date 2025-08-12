@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36203.30
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamNetworkLib", "SteamNetworkLib.csproj", "{A113EEB7-4608-4F8F-AE02-446EE7FB4373}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Documentation|Any CPU = Documentation|Any CPU
+		Il2cpp|Any CPU = Il2cpp|Any CPU
+		Il2cppDebug|Any CPU = Il2cppDebug|Any CPU
+		Mono|Any CPU = Mono|Any CPU
+		MonoDebug|Any CPU = MonoDebug|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.Documentation|Any CPU.ActiveCfg = Documentation|Any CPU
+		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.Documentation|Any CPU.Build.0 = Documentation|Any CPU
+		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.Il2cpp|Any CPU.ActiveCfg = Il2cpp|Any CPU
+		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.Il2cpp|Any CPU.Build.0 = Il2cpp|Any CPU
+		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.Il2cppDebug|Any CPU.ActiveCfg = Il2cppDebug|Any CPU
+		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.Il2cppDebug|Any CPU.Build.0 = Il2cppDebug|Any CPU
+		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.Mono|Any CPU.ActiveCfg = Mono|Any CPU
+		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.Mono|Any CPU.Build.0 = Mono|Any CPU
+		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.MonoDebug|Any CPU.ActiveCfg = MonoDebug|Any CPU
+		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.MonoDebug|Any CPU.Build.0 = MonoDebug|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0AF488F9-C5E0-464D-8BF8-D74C54A0A3BE}
+	EndGlobalSection
+EndGlobal

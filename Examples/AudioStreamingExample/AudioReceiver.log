@@ -1,0 +1,476 @@
+[23:20:41.069] [ScheduleOne-AudioStreaming] [DEBUG] Network message handlers registered
+[23:20:41.071] [ScheduleOne-AudioStreaming] [AudioManager] Network message handlers registered
+[23:20:41.075] [ScheduleOne-AudioStreaming] ✓ AudioStreamingManager initialized
+[23:20:41.076] [ScheduleOne-AudioStreaming] [AudioManager] Diagnostic info:
+[23:20:41.076] [ScheduleOne-AudioStreaming] [AudioManager] P2PManager is active: True
+[23:20:41.077] [ScheduleOne-AudioStreaming] [AudioManager] In lobby: False
+[23:20:41.077] [ScheduleOne-AudioStreaming] [AudioManager] Sending test message to self
+[23:20:41.080] [ScheduleOne-AudioStreaming] [AudioManager] Test message broadcast successfully
+[23:20:41.081] ✓ Advanced audio streaming ready!
+[23:20:41.082] No song.mp3 found at: D:\SteamLibrary\steamapps\common\Schedule I_public\Mods\song.mp3
+[23:20:41.083] Place a song.mp3 file in your mods directory to stream music!
+[23:20:45.672] Lobby joined, starting game...
+[23:20:45.675] [ScheduleOne-AudioStreaming] Joined lobby with 2 members
+[23:20:46.783] [DEBUG] In lobby with 2 members
+[23:20:46.784] [DEBUG] P2P session with Host: Connected=False, Using Relay=False, BytesQueued=0
+[23:20:46.784] [DEBUG] Accepting P2P session with Host
+[23:20:46.786] [DEBUG] AudioStreamingManager initialized: True
+[23:20:46.787] [DEBUG] Active streams: 0
+[23:20:46.787] [ScheduleOne-AudioStreaming] [DEBUG] Sending test P2P message to Host
+[23:20:46.793] [ScheduleOne-AudioStreaming] [DEBUG] Direct test packet sent: True
+[23:20:46.792] [DEBUG] Test P2P message sent successfully to Host
+[23:20:47.589] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Host: Test P2P message from 76561199320154780 at 23:20:47
+[23:20:47.590] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Host: IL2CPP Test Packet - 06:20:47
+[23:20:48.297] [DEBUG] In lobby with 2 members
+[23:20:48.297] [DEBUG] P2P session with Host: Connected=True, Using Relay=False, BytesQueued=0
+[23:20:48.298] [DEBUG] AudioStreamingManager initialized: True
+[23:20:48.298] [DEBUG] Active streams: 0
+[23:20:49.797] [DEBUG] In lobby with 2 members
+[23:20:49.797] [DEBUG] P2P session with Host: Connected=True, Using Relay=False, BytesQueued=0
+[23:20:49.798] [DEBUG] AudioStreamingManager initialized: True
+[23:20:49.798] [DEBUG] Active streams: 0
+[23:20:49.798] [ScheduleOne-AudioStreaming] [DEBUG] Sending test P2P message to Host
+[23:20:49.799] [ScheduleOne-AudioStreaming] [DEBUG] Direct test packet sent: True
+[23:20:49.799] [DEBUG] Test P2P message sent successfully to Host
+[23:20:51.297] [DEBUG] In lobby with 2 members
+[23:20:51.297] [DEBUG] P2P session with Host: Connected=True, Using Relay=False, BytesQueued=0
+[23:20:51.298] [DEBUG] AudioStreamingManager initialized: True
+[23:20:51.298] [DEBUG] Active streams: 0
+[23:20:52.797] [DEBUG] In lobby with 2 members
+[23:20:52.797] [DEBUG] P2P session with Host: Connected=True, Using Relay=False, BytesQueued=0
+[23:20:52.798] [DEBUG] AudioStreamingManager initialized: True
+[23:20:52.798] [DEBUG] Active streams: 0
+[23:20:52.799] [ScheduleOne-AudioStreaming] [DEBUG] Sending test P2P message to Host
+[23:20:52.799] [ScheduleOne-AudioStreaming] [DEBUG] Direct test packet sent: True
+[23:20:52.799] [DEBUG] Test P2P message sent successfully to Host
+[23:20:54.297] [DEBUG] In lobby with 2 members
+[23:20:54.297] [DEBUG] P2P session with Host: Connected=True, Using Relay=False, BytesQueued=0
+[23:20:54.298] [DEBUG] AudioStreamingManager initialized: True
+[23:20:54.299] [DEBUG] Active streams: 0
+[23:20:55.797] [DEBUG] In lobby with 2 members
+[23:20:55.797] [DEBUG] P2P session with Host: Connected=True, Using Relay=False, BytesQueued=0
+[23:20:55.799] [DEBUG] AudioStreamingManager initialized: True
+[23:20:55.799] [DEBUG] Active streams: 0
+[23:20:55.799] [ScheduleOne-AudioStreaming] [DEBUG] Sending test P2P message to Host
+[23:20:55.800] [ScheduleOne-AudioStreaming] [DEBUG] Direct test packet sent: True
+[23:20:55.800] [DEBUG] Test P2P message sent successfully to Host
+[23:20:57.039] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=0, Type=audio, DataSize=0
+[23:20:57.040] [ScheduleOne-AudioStreaming] [AudioManager] Received empty StreamData from 76561199320154780 (seq: 0)
+[23:20:57.048] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=1, Type=audio, DataSize=42
+[23:20:57.052] [ScheduleOne-AudioStreaming] [AudioReceiver] Initialized Opus decoder: 48000Hz, 2 channels, 960 frame size
+[23:20:57.056] [ScheduleOne-AudioStreaming] [AudioManager] Created audio channel for Host (76561199320154780)
+[23:20:57.056] [ScheduleOne-AudioStreaming] [AudioManager] Created audio channel for 76561199320154780 with optimized buffering for precision timing
+[23:20:57.074] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=2, Type=audio, DataSize=43
+[23:20:57.075] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=3, Type=audio, DataSize=47
+[23:20:57.089] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=4, Type=audio, DataSize=47
+[23:20:57.109] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=5, Type=audio, DataSize=47
+[23:20:57.129] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=6, Type=audio, DataSize=47
+[23:20:57.149] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=7, Type=audio, DataSize=47
+[23:20:57.169] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=8, Type=audio, DataSize=47
+[23:20:57.189] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=9, Type=audio, DataSize=47
+[23:20:57.209] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=10, Type=audio, DataSize=47
+[23:20:57.229] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=11, Type=audio, DataSize=47
+[23:20:57.249] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=12, Type=audio, DataSize=47
+[23:20:57.269] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=13, Type=audio, DataSize=47
+[23:20:57.289] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=14, Type=audio, DataSize=47
+[23:20:57.309] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=15, Type=audio, DataSize=47
+[23:20:57.318] [DEBUG] In lobby with 2 members
+[23:20:57.319] [DEBUG] P2P session with Host: Connected=True, Using Relay=False, BytesQueued=0
+[23:20:57.319] [DEBUG] AudioStreamingManager initialized: True
+[23:20:57.320] [DEBUG] Active streams: 1
+[23:20:57.329] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=16, Type=audio, DataSize=47
+[23:20:57.349] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=17, Type=audio, DataSize=47
+[23:20:57.369] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=18, Type=audio, DataSize=47
+[23:20:57.389] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=19, Type=audio, DataSize=47
+[23:20:57.409] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=20, Type=audio, DataSize=47
+[23:20:57.429] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=21, Type=audio, DataSize=47
+[23:20:57.449] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=22, Type=audio, DataSize=47
+[23:20:57.469] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=23, Type=audio, DataSize=47
+[23:20:57.489] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=24, Type=audio, DataSize=47
+[23:20:57.509] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=25, Type=audio, DataSize=47
+[23:20:57.529] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=26, Type=audio, DataSize=47
+[23:20:57.549] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=27, Type=audio, DataSize=47
+[23:20:57.569] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=28, Type=audio, DataSize=47
+[23:20:57.589] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=29, Type=audio, DataSize=47
+[23:20:57.609] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=30, Type=audio, DataSize=47
+[23:20:57.629] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=31, Type=audio, DataSize=47
+[23:20:57.649] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=32, Type=audio, DataSize=47
+[23:20:57.669] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=33, Type=audio, DataSize=47
+[23:20:57.689] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=34, Type=audio, DataSize=47
+[23:20:57.709] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=35, Type=audio, DataSize=47
+[23:20:57.730] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=36, Type=audio, DataSize=47
+[23:20:57.749] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=37, Type=audio, DataSize=47
+[23:20:57.769] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=38, Type=audio, DataSize=47
+[23:20:57.789] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=39, Type=audio, DataSize=47
+[23:20:57.809] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=40, Type=audio, DataSize=47
+[23:20:57.829] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=41, Type=audio, DataSize=47
+[23:20:57.849] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=42, Type=audio, DataSize=47
+[23:20:57.869] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=43, Type=audio, DataSize=47
+[23:20:57.889] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=44, Type=audio, DataSize=47
+[23:20:57.909] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=45, Type=audio, DataSize=47
+[23:20:57.929] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=46, Type=audio, DataSize=47
+[23:20:57.949] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=47, Type=audio, DataSize=47
+[23:20:57.969] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=48, Type=audio, DataSize=47
+[23:20:57.989] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=49, Type=audio, DataSize=47
+[23:20:58.009] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=50, Type=audio, DataSize=47
+[23:20:58.009] [ScheduleOne-AudioStreaming] [AudioReceiver] Frame 50: Decoding took 0.06ms (opus: 0.06ms, conv: 0.01ms), network latency: 3ms, input: 47 bytes
+[23:20:58.029] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=51, Type=audio, DataSize=47
+[23:20:58.049] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=52, Type=audio, DataSize=47
+[23:20:58.069] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=53, Type=audio, DataSize=47
+[23:20:58.089] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=54, Type=audio, DataSize=47
+[23:20:58.109] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=55, Type=audio, DataSize=47
+[23:20:58.129] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=56, Type=audio, DataSize=47
+[23:20:58.154] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=57, Type=audio, DataSize=47
+[23:20:58.171] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=58, Type=audio, DataSize=47
+[23:20:58.191] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=59, Type=audio, DataSize=47
+[23:20:58.211] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=60, Type=audio, DataSize=47
+[23:20:58.231] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=61, Type=audio, DataSize=47
+[23:20:58.251] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=62, Type=audio, DataSize=47
+[23:20:58.271] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=63, Type=audio, DataSize=47
+[23:20:58.286] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=64, Type=audio, DataSize=47
+[23:20:58.306] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=65, Type=audio, DataSize=47
+[23:20:58.326] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=66, Type=audio, DataSize=47
+[23:20:58.346] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=67, Type=audio, DataSize=47
+[23:20:58.366] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=68, Type=audio, DataSize=47
+[23:20:58.386] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=69, Type=audio, DataSize=47
+[23:20:58.406] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=70, Type=audio, DataSize=47
+[23:20:58.426] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=71, Type=audio, DataSize=47
+[23:20:58.446] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=72, Type=audio, DataSize=47
+[23:20:58.466] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=73, Type=audio, DataSize=47
+[23:20:58.486] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=74, Type=audio, DataSize=47
+[23:20:58.506] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=75, Type=audio, DataSize=47
+[23:20:58.526] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=76, Type=audio, DataSize=47
+[23:20:58.546] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=77, Type=audio, DataSize=47
+[23:20:58.566] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=78, Type=audio, DataSize=47
+[23:20:58.586] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=79, Type=audio, DataSize=47
+[23:20:58.606] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=80, Type=audio, DataSize=47
+[23:20:58.626] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=81, Type=audio, DataSize=47
+[23:20:58.646] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=82, Type=audio, DataSize=47
+[23:20:58.671] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=83, Type=audio, DataSize=47
+[23:20:58.691] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=84, Type=audio, DataSize=47
+[23:20:58.711] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=85, Type=audio, DataSize=47
+[23:20:58.731] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=86, Type=audio, DataSize=47
+[23:20:58.751] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=87, Type=audio, DataSize=47
+[23:20:58.771] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=88, Type=audio, DataSize=47
+[23:20:58.791] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Host: Test P2P message from 76561199320154780 at 23:20:58
+[23:20:58.791] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Host: IL2CPP Test Packet - 06:20:58
+[23:20:58.792] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=89, Type=audio, DataSize=47
+[23:20:58.811] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=90, Type=audio, DataSize=47
+[23:20:58.820] [DEBUG] In lobby with 2 members
+[23:20:58.821] [DEBUG] P2P session with Host: Connected=True, Using Relay=False, BytesQueued=0
+[23:20:58.821] [DEBUG] AudioStreamingManager initialized: True
+[23:20:58.821] [DEBUG] Active streams: 1
+[23:20:58.822] [ScheduleOne-AudioStreaming] [DEBUG] Sending test P2P message to Host
+[23:20:58.822] [ScheduleOne-AudioStreaming] [DEBUG] Direct test packet sent: True
+[23:20:58.822] [DEBUG] Test P2P message sent successfully to Host
+[23:20:58.831] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=91, Type=audio, DataSize=47
+[23:20:58.851] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=92, Type=audio, DataSize=47
+[23:20:58.871] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=93, Type=audio, DataSize=47
+[23:20:58.891] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=94, Type=audio, DataSize=47
+[23:20:58.911] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=95, Type=audio, DataSize=47
+[23:20:58.931] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=96, Type=audio, DataSize=47
+[23:20:58.951] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=97, Type=audio, DataSize=47
+[23:20:58.971] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=98, Type=audio, DataSize=47
+[23:20:58.991] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=99, Type=audio, DataSize=47
+[23:20:59.011] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=100, Type=audio, DataSize=47
+[23:20:59.011] [ScheduleOne-AudioStreaming] [AudioManager] Frame 100 data: 7C 07 FD 32 CC A6 3A 25  (length: 47)
+[23:20:59.012] [ScheduleOne-AudioStreaming] [AudioReceiver] Received data length: 47, first bytes: 7C 07 FD 32 CC A6 3A 25
+[23:20:59.012] [ScheduleOne-AudioStreaming] [AudioReceiver] Frame 100: Decoding took 0.45ms (opus: 0.44ms, conv: 0.01ms), network latency: 6ms, input: 47 bytes
+[23:20:59.031] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=101, Type=audio, DataSize=47
+[23:20:59.051] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=102, Type=audio, DataSize=47
+[23:20:59.071] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=103, Type=audio, DataSize=47
+[23:20:59.091] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=104, Type=audio, DataSize=47
+[23:20:59.111] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=105, Type=audio, DataSize=47
+[23:20:59.131] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=106, Type=audio, DataSize=47
+[23:20:59.151] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=107, Type=audio, DataSize=47
+[23:20:59.171] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=108, Type=audio, DataSize=47
+[23:20:59.191] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=109, Type=audio, DataSize=47
+[23:20:59.211] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=110, Type=audio, DataSize=47
+[23:20:59.226] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=111, Type=audio, DataSize=47
+[23:20:59.246] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=112, Type=audio, DataSize=47
+[23:20:59.266] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=113, Type=audio, DataSize=47
+[23:20:59.286] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=114, Type=audio, DataSize=47
+[23:20:59.311] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=115, Type=audio, DataSize=47
+[23:20:59.331] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=116, Type=audio, DataSize=47
+[23:20:59.346] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=117, Type=audio, DataSize=47
+[23:20:59.371] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=118, Type=audio, DataSize=47
+[23:20:59.391] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=119, Type=audio, DataSize=47
+[23:20:59.411] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=120, Type=audio, DataSize=47
+[23:20:59.431] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=121, Type=audio, DataSize=47
+[23:20:59.451] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=122, Type=audio, DataSize=47
+[23:20:59.477] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=123, Type=audio, DataSize=47
+[23:20:59.489] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=124, Type=audio, DataSize=47
+[23:20:59.509] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=125, Type=audio, DataSize=47
+[23:20:59.529] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=126, Type=audio, DataSize=47
+[23:20:59.549] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=127, Type=audio, DataSize=47
+[23:20:59.569] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=128, Type=audio, DataSize=47
+[23:20:59.589] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=129, Type=audio, DataSize=47
+[23:20:59.609] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=130, Type=audio, DataSize=47
+[23:20:59.629] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=131, Type=audio, DataSize=47
+[23:20:59.649] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=132, Type=audio, DataSize=47
+[23:20:59.669] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=133, Type=audio, DataSize=47
+[23:20:59.689] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=134, Type=audio, DataSize=47
+[23:20:59.709] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=135, Type=audio, DataSize=47
+[23:20:59.729] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=136, Type=audio, DataSize=47
+[23:20:59.749] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=137, Type=audio, DataSize=47
+[23:20:59.769] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=138, Type=audio, DataSize=47
+[23:20:59.789] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=139, Type=audio, DataSize=47
+[23:20:59.809] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=140, Type=audio, DataSize=47
+[23:20:59.829] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=141, Type=audio, DataSize=47
+[23:20:59.849] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=142, Type=audio, DataSize=47
+[23:20:59.869] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=143, Type=audio, DataSize=47
+[23:20:59.889] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=144, Type=audio, DataSize=47
+[23:20:59.909] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=145, Type=audio, DataSize=47
+[23:20:59.929] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=146, Type=audio, DataSize=47
+[23:20:59.949] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=147, Type=audio, DataSize=47
+[23:20:59.969] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=148, Type=audio, DataSize=47
+[23:20:59.989] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=149, Type=audio, DataSize=47
+[23:21:00.009] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=150, Type=audio, DataSize=47
+[23:21:00.009] [ScheduleOne-AudioStreaming] [AudioReceiver] Frame 150: Decoding took 0.06ms (opus: 0.06ms, conv: 0.01ms), network latency: 3ms, input: 47 bytes
+[23:21:00.029] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=151, Type=audio, DataSize=47
+[23:21:00.049] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=152, Type=audio, DataSize=47
+[23:21:00.069] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=153, Type=audio, DataSize=47
+[23:21:00.089] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=154, Type=audio, DataSize=47
+[23:21:00.109] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=155, Type=audio, DataSize=47
+[23:21:00.129] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=156, Type=audio, DataSize=47
+[23:21:00.149] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=157, Type=audio, DataSize=47
+[23:21:00.169] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=158, Type=audio, DataSize=47
+[23:21:00.189] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=159, Type=audio, DataSize=47
+[23:21:00.209] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=160, Type=audio, DataSize=47
+[23:21:00.229] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=161, Type=audio, DataSize=47
+[23:21:00.249] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=162, Type=audio, DataSize=47
+[23:21:00.269] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=163, Type=audio, DataSize=47
+[23:21:00.289] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=164, Type=audio, DataSize=47
+[23:21:00.309] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=165, Type=audio, DataSize=47
+[23:21:00.324] [DEBUG] In lobby with 2 members
+[23:21:00.324] [DEBUG] P2P session with Host: Connected=True, Using Relay=False, BytesQueued=0
+[23:21:00.325] [DEBUG] AudioStreamingManager initialized: True
+[23:21:00.325] [DEBUG] Active streams: 1
+[23:21:00.329] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=166, Type=audio, DataSize=47
+[23:21:00.349] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=167, Type=audio, DataSize=47
+[23:21:00.369] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=168, Type=audio, DataSize=47
+[23:21:00.389] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=169, Type=audio, DataSize=47
+[23:21:00.409] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=170, Type=audio, DataSize=47
+[23:21:00.429] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=171, Type=audio, DataSize=47
+[23:21:00.449] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=172, Type=audio, DataSize=47
+[23:21:00.469] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=173, Type=audio, DataSize=47
+[23:21:00.489] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=174, Type=audio, DataSize=47
+[23:21:00.509] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=175, Type=audio, DataSize=47
+[23:21:00.529] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=176, Type=audio, DataSize=47
+[23:21:00.549] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=177, Type=audio, DataSize=47
+[23:21:00.569] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=178, Type=audio, DataSize=47
+[23:21:00.589] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=179, Type=audio, DataSize=47
+[23:21:00.609] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=180, Type=audio, DataSize=47
+[23:21:00.629] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=181, Type=audio, DataSize=47
+[23:21:00.649] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=182, Type=audio, DataSize=47
+[23:21:00.669] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=183, Type=audio, DataSize=47
+[23:21:00.689] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=184, Type=audio, DataSize=47
+[23:21:00.709] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=185, Type=audio, DataSize=47
+[23:21:00.729] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=186, Type=audio, DataSize=47
+[23:21:00.749] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=187, Type=audio, DataSize=47
+[23:21:00.769] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=188, Type=audio, DataSize=47
+[23:21:00.789] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=189, Type=audio, DataSize=47
+[23:21:00.809] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=190, Type=audio, DataSize=47
+[23:21:00.829] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=191, Type=audio, DataSize=47
+[23:21:00.851] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=192, Type=audio, DataSize=47
+[23:21:00.871] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=193, Type=audio, DataSize=47
+[23:21:00.892] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=194, Type=audio, DataSize=47
+[23:21:00.911] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=195, Type=audio, DataSize=47
+[23:21:00.927] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=196, Type=audio, DataSize=47
+[23:21:00.946] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=197, Type=audio, DataSize=47
+[23:21:00.967] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=198, Type=audio, DataSize=47
+[23:21:00.986] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=199, Type=audio, DataSize=47
+[23:21:01.011] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=200, Type=audio, DataSize=47
+[23:21:01.011] [ScheduleOne-AudioStreaming] [AudioManager] Frame 200 data: 7C 07 FD 32 CC A6 3A 25  (length: 47)
+[23:21:01.012] [ScheduleOne-AudioStreaming] [AudioReceiver] Received data length: 47, first bytes: 7C 07 FD 32 CC A6 3A 25
+[23:21:01.013] [ScheduleOne-AudioStreaming] [AudioReceiver] Frame 200: Decoding took 0.38ms (opus: 0.38ms, conv: 0.01ms), network latency: 6ms, input: 47 bytes
+[23:21:01.031] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=201, Type=audio, DataSize=47
+[23:21:01.046] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=202, Type=audio, DataSize=47
+[23:21:01.071] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=203, Type=audio, DataSize=47
+[23:21:01.081] [ScheduleOne-AudioStreaming] === Audio Streaming Statistics ===
+[23:21:01.081] [ScheduleOne-AudioStreaming] [IN] Host: 203 frames, 0 dropped (0.0% loss), 0 PLC frames (0.0% PLC), buffer: 0
+[23:21:01.082] [ScheduleOne-AudioStreaming] =================================
+[23:21:01.091] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=204, Type=audio, DataSize=47
+[23:21:01.111] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=205, Type=audio, DataSize=47
+[23:21:01.131] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=206, Type=audio, DataSize=47
+[23:21:01.151] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=207, Type=audio, DataSize=47
+[23:21:01.171] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=208, Type=audio, DataSize=47
+[23:21:01.193] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=209, Type=audio, DataSize=47
+[23:21:01.207] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=210, Type=audio, DataSize=47
+[23:21:01.226] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=211, Type=audio, DataSize=47
+[23:21:01.246] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=212, Type=audio, DataSize=47
+[23:21:01.271] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=213, Type=audio, DataSize=47
+[23:21:01.291] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=214, Type=audio, DataSize=47
+[23:21:01.306] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=215, Type=audio, DataSize=47
+[23:21:01.326] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=216, Type=audio, DataSize=47
+[23:21:01.347] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=217, Type=audio, DataSize=47
+[23:21:01.366] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=218, Type=audio, DataSize=47
+[23:21:01.391] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=219, Type=audio, DataSize=47
+[23:21:01.411] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=220, Type=audio, DataSize=47
+[23:21:01.431] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=221, Type=audio, DataSize=47
+[23:21:01.451] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=222, Type=audio, DataSize=47
+[23:21:01.471] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=223, Type=audio, DataSize=47
+[23:21:01.486] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=224, Type=audio, DataSize=47
+[23:21:01.508] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=225, Type=audio, DataSize=47
+[23:21:01.528] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=226, Type=audio, DataSize=47
+[23:21:01.548] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=227, Type=audio, DataSize=47
+[23:21:01.568] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=228, Type=audio, DataSize=47
+[23:21:01.588] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=229, Type=audio, DataSize=47
+[23:21:01.608] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=230, Type=audio, DataSize=47
+[23:21:01.628] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=231, Type=audio, DataSize=47
+[23:21:01.648] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=232, Type=audio, DataSize=47
+[23:21:01.668] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=233, Type=audio, DataSize=47
+[23:21:01.688] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=234, Type=audio, DataSize=47
+[23:21:01.708] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=235, Type=audio, DataSize=47
+[23:21:01.728] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=236, Type=audio, DataSize=47
+[23:21:01.748] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=237, Type=audio, DataSize=47
+[23:21:01.768] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=238, Type=audio, DataSize=47
+[23:21:01.788] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=239, Type=audio, DataSize=47
+[23:21:01.792] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Host: Test P2P message from 76561199320154780 at 23:21:01
+[23:21:01.793] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Host: IL2CPP Test Packet - 06:21:01
+[23:21:01.808] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=240, Type=audio, DataSize=47
+[23:21:01.827] [DEBUG] In lobby with 2 members
+[23:21:01.828] [DEBUG] P2P session with Host: Connected=True, Using Relay=False, BytesQueued=0
+[23:21:01.828] [DEBUG] AudioStreamingManager initialized: True
+[23:21:01.829] [DEBUG] Active streams: 1
+[23:21:01.829] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=241, Type=audio, DataSize=47
+[23:21:01.829] [ScheduleOne-AudioStreaming] [DEBUG] Sending test P2P message to Host
+[23:21:01.830] [ScheduleOne-AudioStreaming] [DEBUG] Direct test packet sent: True
+[23:21:01.830] [DEBUG] Test P2P message sent successfully to Host
+[23:21:01.848] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=242, Type=audio, DataSize=47
+[23:21:01.868] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=243, Type=audio, DataSize=47
+[23:21:01.888] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=244, Type=audio, DataSize=47
+[23:21:01.908] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=245, Type=audio, DataSize=47
+[23:21:01.928] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=246, Type=audio, DataSize=47
+[23:21:01.948] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=247, Type=audio, DataSize=47
+[23:21:01.968] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=248, Type=audio, DataSize=47
+[23:21:01.988] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=249, Type=audio, DataSize=47
+[23:21:02.008] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=250, Type=audio, DataSize=47
+[23:21:02.008] [ScheduleOne-AudioStreaming] [AudioReceiver] Frame 250: Decoding took 0.06ms (opus: 0.06ms, conv: 0.01ms), network latency: 2ms, input: 47 bytes
+[23:21:02.028] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=251, Type=audio, DataSize=47
+[23:21:02.048] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=252, Type=audio, DataSize=47
+[23:21:02.068] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=253, Type=audio, DataSize=47
+[23:21:02.088] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=254, Type=audio, DataSize=47
+[23:21:02.118] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=255, Type=audio, DataSize=47
+[23:21:02.128] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=256, Type=audio, DataSize=47
+[23:21:02.148] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=257, Type=audio, DataSize=47
+[23:21:02.168] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=258, Type=audio, DataSize=47
+[23:21:02.188] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=259, Type=audio, DataSize=47
+[23:21:02.208] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=260, Type=audio, DataSize=47
+[23:21:02.228] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=261, Type=audio, DataSize=47
+[23:21:02.248] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=262, Type=audio, DataSize=47
+[23:21:02.268] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=263, Type=audio, DataSize=47
+[23:21:02.288] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=264, Type=audio, DataSize=47
+[23:21:02.308] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=265, Type=audio, DataSize=47
+[23:21:02.328] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=266, Type=audio, DataSize=47
+[23:21:02.348] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=267, Type=audio, DataSize=47
+[23:21:02.368] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=268, Type=audio, DataSize=47
+[23:21:02.388] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=269, Type=audio, DataSize=47
+[23:21:02.408] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=270, Type=audio, DataSize=47
+[23:21:02.428] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=271, Type=audio, DataSize=47
+[23:21:02.448] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=272, Type=audio, DataSize=47
+[23:21:02.468] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=273, Type=audio, DataSize=47
+[23:21:02.488] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=274, Type=audio, DataSize=47
+[23:21:02.508] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=275, Type=audio, DataSize=47
+[23:21:02.528] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=276, Type=audio, DataSize=47
+[23:21:02.548] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=277, Type=audio, DataSize=47
+[23:21:02.568] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=278, Type=audio, DataSize=47
+[23:21:02.588] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=279, Type=audio, DataSize=47
+[23:21:02.609] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=280, Type=audio, DataSize=47
+[23:21:02.629] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=281, Type=audio, DataSize=47
+[23:21:02.648] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=282, Type=audio, DataSize=47
+[23:21:02.668] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=283, Type=audio, DataSize=47
+[23:21:02.688] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=284, Type=audio, DataSize=47
+[23:21:02.708] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=285, Type=audio, DataSize=47
+[23:21:02.728] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=286, Type=audio, DataSize=47
+[23:21:02.748] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=287, Type=audio, DataSize=47
+[23:21:02.768] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=288, Type=audio, DataSize=47
+[23:21:02.788] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=289, Type=audio, DataSize=47
+[23:21:02.808] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=290, Type=audio, DataSize=47
+[23:21:02.828] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=291, Type=audio, DataSize=47
+[23:21:02.848] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=292, Type=audio, DataSize=47
+[23:21:02.868] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=293, Type=audio, DataSize=47
+[23:21:02.888] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=294, Type=audio, DataSize=47
+[23:21:02.908] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=295, Type=audio, DataSize=47
+[23:21:02.928] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=296, Type=audio, DataSize=47
+[23:21:02.948] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=297, Type=audio, DataSize=47
+[23:21:02.968] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=298, Type=audio, DataSize=47
+[23:21:02.988] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=299, Type=audio, DataSize=47
+[23:21:03.008] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=300, Type=audio, DataSize=47
+[23:21:03.008] [ScheduleOne-AudioStreaming] [AudioManager] Frame 300 data: 7C 07 FD 32 CC A6 3A 25  (length: 47)
+[23:21:03.009] [ScheduleOne-AudioStreaming] [AudioReceiver] Received data length: 47, first bytes: 7C 07 FD 32 CC A6 3A 25
+[23:21:03.009] [ScheduleOne-AudioStreaming] [AudioReceiver] Frame 300: Decoding took 0.51ms (opus: 0.50ms, conv: 0.01ms), network latency: 3ms, input: 47 bytes
+[23:21:03.028] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=301, Type=audio, DataSize=47
+[23:21:03.048] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=302, Type=audio, DataSize=47
+[23:21:03.068] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=303, Type=audio, DataSize=47
+[23:21:03.088] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=304, Type=audio, DataSize=47
+[23:21:03.108] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=305, Type=audio, DataSize=47
+[23:21:03.128] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=306, Type=audio, DataSize=47
+[23:21:03.148] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=307, Type=audio, DataSize=47
+[23:21:03.168] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=308, Type=audio, DataSize=47
+[23:21:03.188] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=309, Type=audio, DataSize=47
+[23:21:03.208] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=310, Type=audio, DataSize=47
+[23:21:03.228] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=311, Type=audio, DataSize=47
+[23:21:03.248] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=312, Type=audio, DataSize=47
+[23:21:06.283] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=313, Type=audio, DataSize=47
+[23:21:06.285] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=314, Type=audio, DataSize=47
+[23:21:06.286] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=315, Type=audio, DataSize=47
+[23:21:06.286] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=316, Type=audio, DataSize=47
+[23:21:06.287] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=317, Type=audio, DataSize=47
+[23:21:06.288] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=318, Type=audio, DataSize=47
+[23:21:06.289] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=319, Type=audio, DataSize=47
+[23:21:06.290] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=320, Type=audio, DataSize=47
+[23:21:06.290] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=321, Type=audio, DataSize=47
+[23:21:06.291] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=322, Type=audio, DataSize=47
+[23:21:06.291] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=323, Type=audio, DataSize=47
+[23:21:06.292] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=324, Type=audio, DataSize=47
+[23:21:06.293] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=325, Type=audio, DataSize=47
+[23:21:06.293] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=326, Type=audio, DataSize=47
+[23:21:06.294] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=327, Type=audio, DataSize=47
+[23:21:06.295] [ScheduleOne-AudioStreaming] [AudioManager] Frame 312 dropped from 76561199320154780
+[23:21:06.295] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=328, Type=audio, DataSize=47
+[23:21:06.296] [ScheduleOne-AudioStreaming] [AudioManager] Frame 313 dropped from 76561199320154780
+[23:21:06.296] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=329, Type=audio, DataSize=47
+[23:21:06.297] [ScheduleOne-AudioStreaming] [AudioManager] Frame 314 dropped from 76561199320154780
+[23:21:06.297] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=330, Type=audio, DataSize=47
+[23:21:06.298] [ScheduleOne-AudioStreaming] [AudioManager] Frame 315 dropped from 76561199320154780
+[23:21:06.298] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=331, Type=audio, DataSize=47
+[23:21:06.299] [ScheduleOne-AudioStreaming] [AudioManager] Frame 316 dropped from 76561199320154780
+[23:21:06.299] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=332, Type=audio, DataSize=47
+[23:21:06.300] [ScheduleOne-AudioStreaming] [AudioManager] Frame 317 dropped from 76561199320154780
+[23:21:06.300] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=333, Type=audio, DataSize=47
+[23:21:06.301] [ScheduleOne-AudioStreaming] [AudioManager] Frame 318 dropped from 76561199320154780
+[23:21:06.301] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=334, Type=audio, DataSize=47
+[23:21:06.302] [ScheduleOne-AudioStreaming] [AudioManager] Frame 319 dropped from 76561199320154780
+[23:21:06.302] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=335, Type=audio, DataSize=47
+[23:21:06.305] [ScheduleOne-AudioStreaming] [AudioManager] Frame 320 dropped from 76561199320154780
+[23:21:06.305] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=336, Type=audio, DataSize=47
+[23:21:06.306] [ScheduleOne-AudioStreaming] [AudioManager] Frame 321 dropped from 76561199320154780
+[23:21:06.306] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=337, Type=audio, DataSize=47
+[23:21:06.307] [ScheduleOne-AudioStreaming] [AudioManager] Frame 322 dropped from 76561199320154780
+[23:21:06.308] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=338, Type=audio, DataSize=47
+[23:21:06.308] [ScheduleOne-AudioStreaming] [AudioManager] Frame 323 dropped from 76561199320154780
+[23:21:06.309] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=339, Type=audio, DataSize=47
+[23:21:06.309] [ScheduleOne-AudioStreaming] [AudioManager] Frame 324 dropped from 76561199320154780
+[23:21:06.310] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=340, Type=audio, DataSize=47
+[23:21:06.310] [ScheduleOne-AudioStreaming] [AudioManager] Frame 325 dropped from 76561199320154780
+[23:21:06.311] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=341, Type=audio, DataSize=47
+[23:21:06.311] [ScheduleOne-AudioStreaming] [AudioManager] Frame 326 dropped from 76561199320154780
+[23:21:06.312] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=342, Type=audio, DataSize=47
+[23:21:06.312] [ScheduleOne-AudioStreaming] [AudioManager] Frame 327 dropped from 76561199320154780
+[23:21:06.314] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=343, Type=audio, DataSize=47
+[23:21:06.314] [ScheduleOne-AudioStreaming] [AudioManager] Frame 328 dropped from 76561199320154780
+[23:21:06.315] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=344, Type=audio, DataSize=47
+[23:21:06.315] [ScheduleOne-AudioStreaming] [AudioManager] Frame 329 dropped from 76561199320154780
+[23:21:06.316] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=345, Type=audio, DataSize=47
+[23:21:06.316] [ScheduleOne-AudioStreaming] [AudioManager] Frame 330 dropped from 76561199320154780
+[23:21:06.317] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=346, Type=audio, DataSize=47
+[23:21:06.317] [ScheduleOne-AudioStreaming] [AudioManager] Frame 331 dropped from 76561199320154780
+[23:21:06.320] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=347, Type=audio, DataSize=47
+[23:21:06.320] [ScheduleOne-AudioStreaming] [AudioManager] Frame 332 dropped from 76561199320154780
+[23:21:06.321] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=348, Type=audio, DataSize=47
+[23:21:06.321] [ScheduleOne-AudioStreaming] [AudioManager] Frame 333 dropped from 76561199320154780
+[23:21:06.322] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=349, Type=audio, DataSize=47
+[23:21:06.322] [ScheduleOne-AudioStreaming] [AudioManager] Frame 334 dropped from 76561199320154780
+[23:21:06.323] [ScheduleOne-AudioStreaming] [DEBUG] Received stream message from Host: Seq=350, Type=audio, DataSize=47
+[23:21:06.323] [ScheduleOne-AudioStreaming] [AudioReceiver] Frame 350: Decoding took 0.05ms (opus: 0.04ms, conv: 0.01ms), network latency: 2317ms, input: 47 bytes

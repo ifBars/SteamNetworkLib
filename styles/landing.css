@@ -1,0 +1,226 @@
+/* SteamNetworkLib – custom landing styles (scoped via .snl-*) */
+
+:root {
+  --snl-bg: #0e141b;
+  --snl-bg-elev: #121a24;
+  --snl-card: #162232;
+  --snl-text: #e6eef6;
+  --snl-muted: #a9bacb;
+  --snl-accent: #66c0f4;
+  --snl-accent-2: #8be9fd;
+  --snl-accent-dark: #2a475e;
+  --snl-border: rgba(255,255,255,0.08);
+  --snl-shadow: 0 10px 30px rgba(0,0,0,0.35);
+}
+
+/* Override DocFX defaults for landing page */
+body {
+  background: var(--snl-bg) !important;
+  color: var(--snl-text) !important;
+}
+
+.container-fluid {
+  padding: 0 !important;
+}
+
+/* Navigation bar logo styling */
+.navbar-brand img {
+  max-height: 18px !important;
+  width: auto !important;
+  margin-right: 8px !important;
+  height: 18px !important;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+/* Dark theme for navbar */
+.navbar {
+  background-color: var(--snl-bg-elev) !important;
+  border-bottom: 1px solid var(--snl-border);
+}
+
+.navbar-nav .nav-link {
+  color: var(--snl-text) !important;
+}
+
+.navbar-nav .nav-link:hover {
+  color: var(--snl-accent) !important;
+}
+
+.navbar-brand {
+  color: var(--snl-text) !important;
+}
+
+.navbar-brand:hover {
+  color: var(--snl-accent) !important;
+}
+
+/* Layout helpers */
+.snl-container {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Hero */
+.snl-hero {
+  position: relative;
+  background: radial-gradient(1200px 520px at 20% -10%, rgba(102,192,244,0.18), transparent),
+              linear-gradient(180deg, var(--snl-bg) 0%, #0b1117 100%);
+  border-bottom: 1px solid var(--snl-border);
+  color: var(--snl-text);
+  padding: 64px 0 48px;
+  margin: 0 -15px;
+}
+
+.snl-hero .snl-container {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 32px;
+  align-items: center;
+}
+
+.snl-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.snl-logo {
+  width: 56px;
+  height: 56px;
+}
+
+.snl-title {
+  font-size: 42px;
+  line-height: 1.15;
+  margin: 0 0 8px 0;
+}
+
+.snl-tagline {
+  margin: 8px 0 20px;
+  color: var(--snl-muted);
+  font-size: 18px;
+}
+
+.snl-badges { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 0; }
+.snl-badge {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--snl-border);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--snl-muted);
+}
+
+.snl-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.snl-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid var(--snl-border);
+  color: var(--snl-text);
+  text-decoration: none;
+  box-shadow: var(--snl-shadow);
+  transition: transform .08s ease, background .2s ease, border-color .2s ease;
+}
+.snl-btn:hover { transform: translateY(-1px); }
+.snl-btn--primary { background: linear-gradient(180deg, var(--snl-accent) 0%, #4aa8df 100%); color: #0b1117; border-color: transparent; }
+.snl-btn--secondary { background: #101823; }
+.snl-btn--ghost { background: transparent; }
+
+.snl-hero-code {
+  background: #0b1117;
+  border: 1px solid var(--snl-border);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: var(--snl-shadow);
+}
+
+.snl-hero-code pre { 
+  margin: 0; 
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.snl-hero-code code {
+  background: transparent;
+  color: var(--snl-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Code blocks styling */
+pre {
+  background: #0b1117;
+  border: 1px solid var(--snl-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  overflow-x: auto;
+}
+
+code {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--snl-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+/* Sections */
+.snl-section { 
+  padding: 56px 0; 
+  background: var(--snl-bg); 
+  color: var(--snl-text);
+  margin: 0 -15px;
+}
+.snl-section.alt { background: var(--snl-bg-elev); }
+.snl-section h2 { margin-top: 0; font-size: 28px; }
+.snl-muted { color: var(--snl-muted); }
+
+/* Feature grid */
+.snl-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.snl-card {
+  background: var(--snl-card);
+  border: 1px solid var(--snl-border);
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: var(--snl-shadow);
+}
+.snl-card h3 { margin: 6px 0 6px; font-size: 18px; }
+.snl-card p { margin: 0; color: var(--snl-muted); }
+
+/* Lists */
+.snl-steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+.snl-steps li { position: relative; padding-left: 36px; margin: 12px 0; }
+.snl-steps li::before {
+  counter-increment: step; content: counter(step);
+  position: absolute; left: 0; top: 2px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--snl-accent); color: #0b1117; display: grid; place-items: center; font-weight: 700;
+}
+
+/* Responsive */
+@media (max-width: 980px) {
+  .snl-hero .snl-container { grid-template-columns: 1fr; }
+  .snl-feature-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 580px) {
+  .snl-feature-grid { grid-template-columns: 1fr; }
+  .snl-title { font-size: 34px; }
+}
+
+

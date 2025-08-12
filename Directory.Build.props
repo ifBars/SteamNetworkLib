@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!-- Common properties for all projects -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <Configurations>Mono;Il2cpp;MonoDebug;Il2cppDebug;Documentation</Configurations>
+  </PropertyGroup>
+
+  <!-- Default paths - these should be overridden in Directory.Build.user.props -->
+  <PropertyGroup>
+    <Il2CppGameInstallPath Condition="'$(Il2CppGameInstallPath)' == ''">D:\SteamLibrary\steamapps\common\Schedule I_public</Il2CppGameInstallPath>
+    <GameInstallPath Condition="'$(GameInstallPath)' == ''">D:\SteamLibrary\steamapps\common\Schedule I_alternate</GameInstallPath>
+    <SteamworksManagedPath Condition="'$(SteamworksManagedPath)' == ''">$(GameInstallPath)\Schedule I_Data\Managed</SteamworksManagedPath>
+    <MelonLoaderNet35Path Condition="'$(MelonLoaderNet35Path)' == ''">$(GameInstallPath)\MelonLoader\net35</MelonLoaderNet35Path>
+    <MelonLoaderNet6Path Condition="'$(MelonLoaderNet6Path)' == ''">$(GameInstallPath)\MelonLoader\net6</MelonLoaderNet6Path>
+    <MelonLoaderIl2CppPath Condition="'$(MelonLoaderIl2CppPath)' == ''">$(GameInstallPath)\MelonLoader\Il2CppAssemblies</MelonLoaderIl2CppPath>
+    <ScheduleOneManagedPath Condition="'$(ScheduleOneManagedPath)' == ''">$(GameInstallPath)\Schedule I_Data\Managed</ScheduleOneManagedPath>
+  </PropertyGroup>
+
+  <!-- Build configuration specific properties -->
+  <PropertyGroup Condition="'$(Configuration)'=='Mono'">
+    <DefineConstants>MONO</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Il2cpp'">
+    <DefineConstants>IL2CPP</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='MonoDebug'">
+    <DefineConstants>MONO;SCHEDULE_ONE_INTEGRATION</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Il2cppDebug'">
+    <DefineConstants>IL2CPP;SCHEDULE_ONE_INTEGRATION</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Documentation'">
+    <DefineConstants>MONO</DefineConstants>
+  </PropertyGroup>
+</Project> 

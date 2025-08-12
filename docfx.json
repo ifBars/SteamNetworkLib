@@ -1,0 +1,63 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "bin/Documentation/netstandard2.1",
+          "files": [
+            "SteamNetworkLib.dll"
+          ]
+        },
+        {
+          "src": "C:/Users/ghost/.nuget/packages/steamworks.net/2024.8.0/lib/netstandard2.1",
+          "files": [
+            "Steamworks.NET.dll"
+          ]
+        }
+      ],
+      "dest": "api",
+      "disableGitFeatures": false,
+      "disableDefaultFilter": false,
+      "shouldSkipMarkup": false,
+      "force": true
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": [
+          "**/*.{md,yml}"
+        ],
+        "exclude": [
+          "_site/**"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "images/**"
+        ]
+      },
+      {
+        "files": [
+          "styles/**"
+        ]
+      }
+    ],
+    "output": "_site",
+    "template": [
+      "default",
+      "modern"
+    ],
+
+    "globalMetadata": {
+      "_appName": "SteamNetworkLib",
+      "_appTitle": "SteamNetworkLib",
+      "_enableSearch": true,
+      "_navbarTitle": "SteamNetworkLib",
+      "pdf": true
+    }
+  }
+}

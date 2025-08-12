@@ -1,0 +1,177 @@
+[23:20:30.770] [ScheduleOne-AudioStreaming] [DEBUG] Network message handlers registered
+[23:20:30.771] [ScheduleOne-AudioStreaming] [AudioManager] Network message handlers registered
+[23:20:30.774] [ScheduleOne-AudioStreaming] ✓ AudioStreamingManager initialized
+[23:20:30.774] [ScheduleOne-AudioStreaming] [AudioManager] Diagnostic info:
+[23:20:30.774] [ScheduleOne-AudioStreaming] [AudioManager] P2PManager is active: True
+[23:20:30.775] [ScheduleOne-AudioStreaming] [AudioManager] In lobby: False
+[23:20:30.775] [ScheduleOne-AudioStreaming] [AudioManager] Sending test message to self
+[23:20:30.778] [ScheduleOne-AudioStreaming] [AudioManager] Test message broadcast successfully
+[23:20:30.778] ✓ Advanced audio streaming ready!
+[23:20:30.781] Loading song from: D:\SteamLibrary\steamapps\common\Schedule I_public\Mods\song.mp3
+[23:20:30.782] [ScheduleOne-AudioStreaming] Loading BASS from D:\SteamLibrary\steamapps\common\Schedule I_public\UserData\AudioImportLib\bass.dll
+[23:20:30.985] ✓ Song loaded successfully with AudioImportLib! Duration: 164.0s
+[23:20:30.986] ✓ Sample Rate: 44100Hz, Channels: 2
+[23:20:31.002] Lobby created: 109775242466683779and saved to D:\SteamLibrary\steamapps\common\Schedule I_public\UserData\LocalLobby\lobby.txt
+[23:20:31.012] [ScheduleOne-AudioStreaming] Joined lobby with 1 members
+[23:20:31.013] [ScheduleOne-AudioStreaming] 🎵 Waiting for other players to join before starting music...
+[23:20:31.014] [ScheduleOne-AudioStreaming] 🎵 Controls: Press 'M' to start/stop streaming, 'N' to stop only
+[23:20:32.496] [DEBUG] In lobby with 1 members
+[23:20:32.497] [DEBUG] AudioStreamingManager initialized: True
+[23:20:32.498] [DEBUG] Active streams: 0
+[23:20:34.026] [DEBUG] In lobby with 1 members
+[23:20:34.026] [DEBUG] AudioStreamingManager initialized: True
+[23:20:34.027] [DEBUG] Active streams: 0
+[23:20:35.526] [DEBUG] In lobby with 1 members
+[23:20:35.526] [DEBUG] AudioStreamingManager initialized: True
+[23:20:35.527] [DEBUG] Active streams: 0
+[23:20:37.026] [DEBUG] In lobby with 1 members
+[23:20:37.026] [DEBUG] AudioStreamingManager initialized: True
+[23:20:37.027] [DEBUG] Active streams: 0
+[23:20:38.549] [DEBUG] In lobby with 1 members
+[23:20:38.549] [DEBUG] AudioStreamingManager initialized: True
+[23:20:38.550] [DEBUG] Active streams: 0
+[23:20:40.051] [DEBUG] In lobby with 1 members
+[23:20:40.051] [DEBUG] AudioStreamingManager initialized: True
+[23:20:40.052] [DEBUG] Active streams: 0
+[23:20:41.552] [DEBUG] In lobby with 1 members
+[23:20:41.552] [DEBUG] AudioStreamingManager initialized: True
+[23:20:41.553] [DEBUG] Active streams: 0
+[23:20:43.052] [DEBUG] In lobby with 1 members
+[23:20:43.052] [DEBUG] AudioStreamingManager initialized: True
+[23:20:43.053] [DEBUG] Active streams: 0
+[23:20:44.552] [DEBUG] In lobby with 1 members
+[23:20:44.552] [DEBUG] AudioStreamingManager initialized: True
+[23:20:44.553] [DEBUG] Active streams: 0
+[23:20:45.675] [ScheduleOne-AudioStreaming] 🎵 Client joined the lobby!
+[23:20:45.676] [ScheduleOne-AudioStreaming] 🎵 Client joined - preparing audio channel
+[23:20:45.678] [ScheduleOne-AudioStreaming] [AudioManager] Created audio channel for Client (76561199485712034)
+[23:20:46.062] [DEBUG] In lobby with 2 members
+[23:20:46.063] [DEBUG] P2P session with Client: Connected=False, Using Relay=False, BytesQueued=0
+[23:20:46.063] [DEBUG] Accepting P2P session with Client
+[23:20:46.065] [DEBUG] AudioStreamingManager initialized: True
+[23:20:46.065] [DEBUG] Active streams: 0
+[23:20:46.670] [ScheduleOne-AudioStreaming] 🎵 You have the song and there are 2 players!
+[23:20:46.670] [ScheduleOne-AudioStreaming] 🎵 Press 'M' to start streaming music!
+[23:20:46.809] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: Test P2P message from 76561199485712034 at 23:20:46
+[23:20:46.809] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: IL2CPP Test Packet - 06:20:46
+[23:20:47.571] [DEBUG] In lobby with 2 members
+[23:20:47.571] [DEBUG] P2P session with Client: Connected=True, Using Relay=False, BytesQueued=0
+[23:20:47.572] [DEBUG] AudioStreamingManager initialized: True
+[23:20:47.572] [DEBUG] Active streams: 0
+[23:20:47.573] [ScheduleOne-AudioStreaming] [DEBUG] Sending test P2P message to Client
+[23:20:47.576] [ScheduleOne-AudioStreaming] [DEBUG] Direct test packet sent: True
+[23:20:47.576] [DEBUG] Test P2P message sent successfully to Client
+[23:20:48.840] [ScheduleOne-AudioStreaming] 🎵 Manual stream start requested!
+[23:20:48.840] [ScheduleOne-AudioStreaming] 🎵 Starting high-quality audio stream...
+[23:20:48.844] [ScheduleOne-AudioStreaming] [OpusEncoder] Initialized: 64000bps, Quality:50, FEC enabled, Music mode, Full bandwidth
+[23:20:48.844] [ScheduleOne-AudioStreaming] Resampling audio from 44100Hz to 48000Hz for Opus...
+[23:20:57.035] [ScheduleOne-AudioStreaming] 🎵 Started streaming 'lobby_music_stream'
+[23:20:57.038] [Il2CppICallInjector] Registered mono icall UnityEngine.AudioSettings::StartAudioOutput in il2cpp domain
+[23:20:57.039] [Il2CppICallInjector] Registered mono icall UnityEngine.AudioSettings::StopAudioOutput in il2cpp domain
+[23:20:57.039] [Il2CppICallInjector] Registered mono icall UnityEngine.AudioSettings::get_audioOutputStarted in il2cpp domain
+[23:20:57.040] 🎵 Starting Opus stream with 8200 frames (duration: 164000ms)...
+[23:20:57.043] [ScheduleOne-AudioStreaming] [AudioSender] Frame 0 encoded data: 7C 07 FD 87 3D 83 1B D7  (length: 42)
+[23:20:57.043] [ScheduleOne-AudioStreaming] [AudioSender] Frame 0: Encoding took 1.14ms (conv: 0.24ms, opus: 0.90ms), output: 42 bytes
+[23:20:57.044] [AudioSender] Initial frame 0: took 3.26ms
+[23:20:57.044] [ScheduleOne-AudioStreaming] 🎵 Audio stream 'lobby_music_stream' started (164.0s, 44100Hz)
+[23:20:57.054] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: Test P2P message from 76561199485712034 at 23:20:49
+[23:20:57.054] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: IL2CPP Test Packet - 06:20:49
+[23:20:57.054] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: Test P2P message from 76561199485712034 at 23:20:52
+[23:20:57.055] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: IL2CPP Test Packet - 06:20:52
+[23:20:57.055] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: Test P2P message from 76561199485712034 at 23:20:55
+[23:20:57.055] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: IL2CPP Test Packet - 06:20:55
+[23:20:57.056] [ScheduleOne-AudioStreaming] === Audio Streaming Statistics ===
+[23:20:57.056] [ScheduleOne-AudioStreaming] [OUT] lobby_music_stream: 1 frames sent, 42 bytes
+[23:20:57.056] [ScheduleOne-AudioStreaming] =================================
+[23:20:57.057] [AudioSender] Initial frame 1: took 0.76ms
+[23:20:57.061] [AudioSender] Initial frame 2: took 0.65ms
+[23:20:57.065] [AudioSender] Starting main streaming loop at 20ms intervals...
+[23:20:57.285] [DEBUG] In lobby with 2 members
+[23:20:57.285] [DEBUG] P2P session with Client: Connected=True, Using Relay=False, BytesQueued=0
+[23:20:57.286] [DEBUG] AudioStreamingManager initialized: True
+[23:20:57.286] [DEBUG] Active streams: 0
+[23:20:58.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 50: Encoding took 0.43ms (conv: 0.14ms, opus: 0.29ms), output: 47 bytes
+[23:20:58.785] [DEBUG] In lobby with 2 members
+[23:20:58.786] [DEBUG] P2P session with Client: Connected=True, Using Relay=False, BytesQueued=0
+[23:20:58.786] [DEBUG] AudioStreamingManager initialized: True
+[23:20:58.787] [DEBUG] Active streams: 0
+[23:20:58.788] [ScheduleOne-AudioStreaming] [DEBUG] Sending test P2P message to Client
+[23:20:58.788] [ScheduleOne-AudioStreaming] [DEBUG] Direct test packet sent: True
+[23:20:58.788] [DEBUG] Test P2P message sent successfully to Client
+[23:20:58.789] [ScheduleOne-AudioStreaming] [AudioSender] Frame 88: High timing error: 3.05ms, Send time: 0.47ms
+[23:20:58.827] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: Test P2P message from 76561199485712034 at 23:20:58
+[23:20:58.828] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: IL2CPP Test Packet - 06:20:58
+[23:20:59.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 100 encoded data: 7C 07 FD 32 CC A6 3A 25  (length: 47)
+[23:20:59.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 100: Encoding took 0.44ms (conv: 0.14ms, opus: 0.29ms), output: 47 bytes
+[23:20:59.026] [AudioSender] Frame 100: Timing error: 0.00ms, Send time: 1.20ms
+[23:21:00.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 150: Encoding took 0.44ms (conv: 0.14ms, opus: 0.29ms), output: 47 bytes
+[23:21:00.289] [DEBUG] In lobby with 2 members
+[23:21:00.290] [DEBUG] P2P session with Client: Connected=True, Using Relay=False, BytesQueued=0
+[23:21:00.291] [DEBUG] AudioStreamingManager initialized: True
+[23:21:00.291] [DEBUG] Active streams: 0
+[23:21:01.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 200 encoded data: 7C 07 FD 32 CC A6 3A 25  (length: 47)
+[23:21:01.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 200: Encoding took 0.43ms (conv: 0.14ms, opus: 0.29ms), output: 47 bytes
+[23:21:01.027] [AudioSender] Frame 200: Timing error: 0.00ms, Send time: 1.27ms
+[23:21:01.790] [DEBUG] In lobby with 2 members
+[23:21:01.790] [DEBUG] P2P session with Client: Connected=True, Using Relay=False, BytesQueued=0
+[23:21:01.791] [DEBUG] AudioStreamingManager initialized: True
+[23:21:01.791] [DEBUG] Active streams: 0
+[23:21:01.791] [ScheduleOne-AudioStreaming] [DEBUG] Sending test P2P message to Client
+[23:21:01.792] [DEBUG] Test P2P message sent successfully to Client
+[23:21:01.792] [ScheduleOne-AudioStreaming] [DEBUG] Direct test packet sent: True
+[23:21:01.830] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: Test P2P message from 76561199485712034 at 23:21:01
+[23:21:01.830] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: IL2CPP Test Packet - 06:21:01
+[23:21:02.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 250: Encoding took 0.43ms (conv: 0.14ms, opus: 0.29ms), output: 47 bytes
+[23:21:02.060] [ScheduleOne-AudioStreaming] === Audio Streaming Statistics ===
+[23:21:02.060] [ScheduleOne-AudioStreaming] [OUT] lobby_music_stream: 252 frames sent, 11835 bytes
+[23:21:02.061] [ScheduleOne-AudioStreaming] =================================
+[23:21:02.113] [ScheduleOne-AudioStreaming] [AudioSender] Frame 254: High timing error: 6.75ms, Send time: 0.61ms
+[23:21:03.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 300 encoded data: 7C 07 FD 32 CC A6 3A 25  (length: 47)
+[23:21:03.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 300: Encoding took 0.53ms (conv: 0.21ms, opus: 0.32ms), output: 47 bytes
+[23:21:03.027] [AudioSender] Frame 300: Timing error: 0.00ms, Send time: 2.00ms
+[23:21:04.012] [DEBUG] In lobby with 2 members
+[23:21:04.013] [DEBUG] P2P session with Client: Connected=True, Using Relay=False, BytesQueued=0
+[23:21:04.013] [DEBUG] AudioStreamingManager initialized: True
+[23:21:04.014] [DEBUG] Active streams: 0
+[23:21:04.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 350: Encoding took 0.44ms (conv: 0.17ms, opus: 0.27ms), output: 47 bytes
+[23:21:05.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 400 encoded data: 7C 07 FD 32 CC A6 3A 25  (length: 47)
+[23:21:05.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 400: Encoding took 0.44ms (conv: 0.13ms, opus: 0.30ms), output: 47 bytes
+[23:21:05.028] [AudioSender] Frame 400: Timing error: 0.00ms, Send time: 2.77ms
+[23:21:06.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 450: Encoding took 0.45ms (conv: 0.14ms, opus: 0.31ms), output: 47 bytes
+[23:21:07.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 500 encoded data: 7C 07 FD 32 CC A6 3A 25  (length: 47)
+[23:21:07.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 500: Encoding took 0.44ms (conv: 0.15ms, opus: 0.29ms), output: 47 bytes
+[23:21:07.027] [AudioSender] Frame 500: Timing error: 0.00ms, Send time: 1.28ms
+[23:21:07.028] [DEBUG] In lobby with 2 members
+[23:21:07.028] [DEBUG] P2P session with Client: Connected=True, Using Relay=False, BytesQueued=0
+[23:21:07.029] [DEBUG] AudioStreamingManager initialized: True
+[23:21:07.029] [DEBUG] Active streams: 0
+[23:21:07.030] [ScheduleOne-AudioStreaming] [DEBUG] Sending test P2P message to Client
+[23:21:07.030] [ScheduleOne-AudioStreaming] [DEBUG] Direct test packet sent: True
+[23:21:07.030] [DEBUG] Test P2P message sent successfully to Client
+[23:21:07.067] [ScheduleOne-AudioStreaming] === Audio Streaming Statistics ===
+[23:21:07.067] [ScheduleOne-AudioStreaming] [OUT] lobby_music_stream: 503 frames sent, 23632 bytes
+[23:21:07.068] [ScheduleOne-AudioStreaming] =================================
+[23:21:08.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 550: Encoding took 0.44ms (conv: 0.15ms, opus: 0.29ms), output: 47 bytes
+[23:21:08.227] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: Test P2P message from 76561199485712034 at 23:21:08
+[23:21:08.227] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: IL2CPP Test Packet - 06:21:08
+[23:21:09.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 600 encoded data: 7C 07 FD 32 CC A6 3A 25  (length: 47)
+[23:21:09.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 600: Encoding took 0.59ms (conv: 0.18ms, opus: 0.40ms), output: 47 bytes
+[23:21:09.027] [AudioSender] Frame 600: Timing error: 0.00ms, Send time: 1.71ms
+[23:21:10.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 650: Encoding took 0.43ms (conv: 0.15ms, opus: 0.29ms), output: 47 bytes
+[23:21:11.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 700 encoded data: 7C 07 FD 32 CC A6 3A 25  (length: 47)
+[23:21:11.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 700: Encoding took 0.43ms (conv: 0.15ms, opus: 0.29ms), output: 47 bytes
+[23:21:11.027] [AudioSender] Frame 700: Timing error: 0.00ms, Send time: 1.59ms
+[23:21:11.227] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: Test P2P message from 76561199485712034 at 23:21:11
+[23:21:11.228] [ScheduleOne-AudioStreaming] [DEBUG] Received text message from Client: IL2CPP Test Packet - 06:21:11
+[23:21:12.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 750: Encoding took 0.46ms (conv: 0.17ms, opus: 0.29ms), output: 47 bytes
+[23:21:12.087] [ScheduleOne-AudioStreaming] === Audio Streaming Statistics ===
+[23:21:12.088] [ScheduleOne-AudioStreaming] [OUT] lobby_music_stream: 754 frames sent, 35429 bytes
+[23:21:12.088] [ScheduleOne-AudioStreaming] =================================
+[23:21:12.648] [DEBUG] In lobby with 2 members
+[23:21:12.649] [DEBUG] P2P session with Client: Connected=True, Using Relay=False, BytesQueued=0
+[23:21:12.651] [DEBUG] AudioStreamingManager initialized: True
+[23:21:12.653] [DEBUG] Active streams: 0
+[23:21:13.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 800 encoded data: 7C 07 FD 32 CC A6 3A 25  (length: 47)
+[23:21:13.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 800: Encoding took 0.44ms (conv: 0.14ms, opus: 0.29ms), output: 47 bytes
+[23:21:13.027] [AudioSender] Frame 800: Timing error: 0.00ms, Send time: 1.29ms
+[23:21:14.026] [ScheduleOne-AudioStreaming] [AudioSender] Frame 850: Encoding took 0.44ms (conv: 0.15ms, opus: 0.29ms), output: 47 bytes
