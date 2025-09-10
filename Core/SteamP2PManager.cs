@@ -23,6 +23,7 @@ namespace SteamNetworkLib.Core
     public class SteamP2PManager : IDisposable
     {
         private readonly SteamLobbyManager _lobbyManager;
+        private NetworkRules _rules = new NetworkRules();
         private bool _disposed = false;
         private readonly Dictionary<CSteamID, DateTime> _activeSessions = new Dictionary<CSteamID, DateTime>();
         private readonly Queue<(CSteamID Target, byte[] Data, int Channel, EP2PSend SendType)> _sendQueue = new Queue<(CSteamID, byte[], int, EP2PSend)>();
@@ -81,9 +82,24 @@ namespace SteamNetworkLib.Core
         /// <param name="lobbyManager">The lobby manager instance to use for lobby operations.</param>
         /// <exception cref="ArgumentNullException">Thrown when lobbyManager is null.</exception>
         /// <exception cref="SteamNetworkException">Thrown when Steam is not initialized.</exception>
-        public SteamP2PManager(SteamLobbyManager lobbyManager)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SteamP2PManager"/> class.
+        /// </summary>
+        /// <param name="lobbyManager">The lobby manager instance to use for lobby operations.</param>
         {
             _lobbyManager = lobbyManager ?? throw new ArgumentNullException(nameof(lobbyManager));
+            InitializeP2P();
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SteamP2PManager"/> class with configurable network rules.
+        /// </summary>
+        /// <param name="lobbyManager">The lobby manager instance to use for lobby operations.</param>
+        /// <param name="rules">Network rules that influence relay usage, receive channels, and session filtering.</param>
+        public SteamP2PManager(SteamLobbyManager lobbyManager, NetworkRules rules)
+        {
+            _lobbyManager = lobbyManager ?? throw new ArgumentNullException(nameof(lobbyManager));
+            _rules = rules ?? new NetworkRules();
             InitializeP2P();
         }
 
@@ -113,6 +129,18 @@ namespace SteamNetworkLib.Core
                 message.SenderId = _lobbyManager.LocalPlayerID;
 
                 var messageData = MessageSerializer.SerializeMessage(message);
+
+                // Apply message policy if provided
+                if (_rules.MessagePolicy != null)
+                {
+                    try
+                    {
+                        var policy = _rules.MessagePolicy(message);
+                        channel = policy.channel;
+                        sendType = policy.sendType;
+                    }
+                    catch { }
+                }
 
                 return await SendPacketAsync(targetId, messageData, channel, sendType);
             }
@@ -359,7 +387,9 @@ namespace SteamNetworkLib.Core
 #if IL2CPP
                 // IL2CPP-specific: Check multiple channels explicitly & use Il2CppStructArray to avoid corruption
                 // The default IsP2PPacketAvailable() without channel parameter may not work in IL2CPP
-                for (int channel = 0; channel <= 3; channel++) // Check channels 0-3
+                int minCh = Math.Max(0, _rules.MinReceiveChannel);
+                int maxCh = Math.Max(minCh, _rules.MaxReceiveChannel);
+                for (int channel = minCh; channel <= maxCh; channel++)
                 {
                     while (SteamNetworking.IsP2PPacketAvailable(out packetSize, channel))
                     {
@@ -510,7 +540,8 @@ namespace SteamNetworkLib.Core
             _sessionRequestCallback = Callback<P2PSessionRequest_t>.Create(OnSessionRequestCallback);
             _sessionConnectFailCallback = Callback<P2PSessionConnectFail_t>.Create(OnSessionConnectFailCallback);
 #endif
-
+            // Apply relay rule
+            try { SteamNetworking.AllowP2PPacketRelay(_rules.EnableRelay); } catch { }
             IsActive = true;
         }
 
@@ -694,6 +725,10 @@ namespace SteamNetworkLib.Core
                 var requesterName = SteamNetworkUtils.GetPlayerName(requesterId);
 
                 var eventArgs = new P2PSessionRequestEventArgs(requesterId, requesterName);
+                if (_rules.AcceptOnlyFriends && !SteamNetworkUtils.IsFriend(requesterId))
+                {
+                    eventArgs.ShouldAccept = false;
+                }
                 OnSessionRequested?.Invoke(this, eventArgs);
 
                 if (eventArgs.ShouldAccept)
@@ -705,6 +740,16 @@ namespace SteamNetworkLib.Core
             {
                 Console.WriteLine($"Error in session request callback: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Updates network rules at runtime and applies global settings where possible.
+        /// </summary>
+        public void UpdateRules(NetworkRules rules)
+        {
+            if (rules == null) return;
+            _rules = rules;
+            try { SteamNetworking.AllowP2PPacketRelay(_rules.EnableRelay); } catch { }
         }
 
         private void OnSessionConnectFailCallback(P2PSessionConnectFail_t result)

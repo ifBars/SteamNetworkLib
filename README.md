@@ -85,4 +85,3 @@ This library is provided "as-is" under the MIT License. The author is not respon
 ---
 
 **Built for the Schedule 1 modding community**
-*Making Steam networking accessible to everyone.*

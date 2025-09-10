@@ -27,6 +27,7 @@ namespace SteamNetworkLib
         private bool _disposed = false;
         private bool _isInitialized = false;
         private bool _versionCheckEnabled = true;
+        private readonly Core.NetworkRules _rules;
 
         /// <summary>
         /// The internal data key used for storing SteamNetworkLib version information.
@@ -149,11 +150,34 @@ namespace SteamNetworkLib
         public event EventHandler<P2PMessageReceivedEventArgs>? OnP2PMessageReceived;
 
         /// <summary>
+        /// Current network rules applied to P2P behavior.
+        /// </summary>
+        public Core.NetworkRules NetworkRules => _rules;
+
+        /// <summary>
+        /// Updates network rules at runtime and propagates to managers.
+        /// </summary>
+        public void UpdateNetworkRules(Core.NetworkRules rules)
+        {
+            if (rules == null) return;
+            if (P2PManager != null)
+            {
+                P2PManager.UpdateRules(rules);
+            }
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="SteamNetworkClient"/> class.
         /// Call <see cref="Initialize"/> before using any other methods.
         /// </summary>
         public SteamNetworkClient()
         {
+            _rules = new Core.NetworkRules();
+        }
+
+        public SteamNetworkClient(Core.NetworkRules rules)
+        {
+            _rules = rules ?? new Core.NetworkRules();
         }
 
         /// <summary>
@@ -178,7 +202,7 @@ namespace SteamNetworkLib
                 LobbyManager = new SteamLobbyManager();
                 LobbyData = new SteamLobbyData(LobbyManager);
                 MemberData = new SteamMemberData(LobbyManager);
-                P2PManager = new SteamP2PManager(LobbyManager);
+                P2PManager = new SteamP2PManager(LobbyManager, _rules);
 
                 SubscribeToEvents();
 

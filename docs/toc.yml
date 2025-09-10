@@ -2,13 +2,19 @@
   href: introduction.md
 - name: Getting Started
   href: getting-started.md
+- name: Beginner Quickstart
+  href: beginner-quickstart.md
 - name: Lobby Management
   href: lobby-management.md
 - name: Data Synchronization
   href: data-synchronization.md
 - name: P2P Messaging
   href: p2p-messaging.md
+- name: Network Rules
+  href: network-rules.md
 - name: Events and Error Handling
   href: events-and-errors.md
+- name: Advanced API
+  href: advanced-api.md
 - name: Recipes
   href: recipes.md

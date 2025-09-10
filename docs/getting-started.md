@@ -44,7 +44,14 @@ public class YourAwesomeModMain : MelonMod
 
     public override void OnInitializeMelon()
     {
-        client = new SteamNetworkClient();
+        // Optional: configure network rules (relay, session policy, channels)
+        var rules = new SteamNetworkLib.Core.NetworkRules
+        {
+            EnableRelay = true,
+            AcceptOnlyFriends = false
+        };
+
+        client = new SteamNetworkClient(rules);
         if (client.Initialize())
         {
             // Optional: subscribe to events

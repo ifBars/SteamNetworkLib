@@ -5,19 +5,19 @@ Use the P2P layer to send reliable, typed messages and raw packets between playe
 ## Basics
 
 ```csharp
-// Register handlers
+// Register handlers via the high-level client API
 client.RegisterMessageHandler<TextMessage>((msg, sender) =>
 {
     MelonLogger.Msg($"Message from {sender}: {msg.Content}");
 });
 
 // Send to one player
-await client.SendTextMessageAsync(targetId, "Hello!");
+await client.SendMessageToPlayerAsync(targetId, new TextMessage { Content = "Hello!" });
 
 // Broadcast to everyone
-await client.BroadcastTextMessageAsync("Welcome!");
+await client.BroadcastMessageAsync(new TextMessage { Content = "Welcome!" });
 
-// Pump incoming packets every frame
+// Pump incoming packets every frame (e.g., in Update)
 client.ProcessIncomingMessages();
 ```
 
@@ -57,7 +57,7 @@ For files, send `FileTransferMessage` in chunks up to `client.P2PManager.MaxPack
 
 ```csharp
 var bytes = File.ReadAllBytes(path);
-int chunkSize = client.P2PManager.MaxPacketSize;
+int chunkSize = client.P2PManager.MaxPacketSize; // use client wrappers for sending
 int total = (int)Math.Ceiling((double)bytes.Length / chunkSize);
 
 for (int i = 0; i < total; i++)
@@ -74,7 +74,7 @@ for (int i = 0; i < total; i++)
         ChunkData = slice
     };
 
-    await client.SendMessageToPlayerAsync(targetId, file, channel: 1);
+    await client.SendMessageToPlayerAsync(targetId, file);
 }
 ```
 
@@ -83,7 +83,22 @@ for (int i = 0; i < total; i++)
 - Default channel is 0; you can use multiple channels (e.g., 0 control, 1 files, 2 audio).
 - Use `EP2PSend.k_EP2PSendReliable` for reliability; for streams, prefer the message-recommended send type.
 
+### Selecting channels and reliability automatically
+Configure a policy once via `NetworkRules.MessagePolicy` and apply it at runtime:
+
+```csharp
+// Streams on channel 1 using the message's recommended send type;
+// everything else reliable on channel 0
+client.NetworkRules.MessagePolicy = msg =>
+{
+    if (msg is StreamMessage s) return (1, s.RecommendedSendType);
+    return (0, client.NetworkRules.DefaultSendType);
+};
+
+client.UpdateNetworkRules(client.NetworkRules);
+```
+
 ## Events and sessions
 
 - `client.OnP2PMessageReceived` fires for any deserialized message.
-- P2P sessions are managed automatically; inspect sessions via `P2PManager.GetActiveSessions()` and `GetSessionState()` if needed.
+- P2P sessions are managed automatically by the client.
