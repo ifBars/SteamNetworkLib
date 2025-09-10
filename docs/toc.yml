@@ -2,8 +2,6 @@
   href: introduction.md
 - name: Getting Started
   href: getting-started.md
-- name: Beginner Quickstart
-  href: beginner-quickstart.md
 - name: Lobby Management
   href: lobby-management.md
 - name: Data Synchronization
