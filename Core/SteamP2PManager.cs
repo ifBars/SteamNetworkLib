@@ -82,10 +82,7 @@ namespace SteamNetworkLib.Core
         /// <param name="lobbyManager">The lobby manager instance to use for lobby operations.</param>
         /// <exception cref="ArgumentNullException">Thrown when lobbyManager is null.</exception>
         /// <exception cref="SteamNetworkException">Thrown when Steam is not initialized.</exception>
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SteamP2PManager"/> class.
-        /// </summary>
-        /// <param name="lobbyManager">The lobby manager instance to use for lobby operations.</param>
+        public SteamP2PManager(SteamLobbyManager lobbyManager)
         {
             _lobbyManager = lobbyManager ?? throw new ArgumentNullException(nameof(lobbyManager));
             InitializeP2P();
