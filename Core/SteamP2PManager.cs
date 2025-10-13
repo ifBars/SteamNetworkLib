@@ -93,7 +93,7 @@ namespace SteamNetworkLib.Core
         /// </summary>
         /// <param name="lobbyManager">The lobby manager instance to use for lobby operations.</param>
         /// <param name="rules">Network rules that influence relay usage, receive channels, and session filtering.</param>
-        public SteamP2PManager(SteamLobbyManager lobbyManager, NetworkRules rules)
+        public SteamP2PManager(SteamLobbyManager? lobbyManager, NetworkRules rules)
         {
             _lobbyManager = lobbyManager ?? throw new ArgumentNullException(nameof(lobbyManager));
             _rules = rules ?? new NetworkRules();

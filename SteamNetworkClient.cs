@@ -72,22 +72,22 @@ namespace SteamNetworkLib
         /// <summary>
         /// Gets the lobby manager for handling Steam lobby operations.
         /// </summary>
-        public SteamLobbyManager LobbyManager { get; private set; }
+        public SteamLobbyManager? LobbyManager { get; private set; }
 
         /// <summary>
         /// Gets the lobby data manager for handling lobby-wide data.
         /// </summary>
-        public SteamLobbyData LobbyData { get; private set; }
+        public SteamLobbyData? LobbyData { get; private set; }
 
         /// <summary>
         /// Gets the member data manager for handling player-specific data.
         /// </summary>
-        public SteamMemberData MemberData { get; private set; }
+        public SteamMemberData? MemberData { get; private set; }
 
         /// <summary>
         /// Gets the P2P manager for handling peer-to-peer communication.
         /// </summary>
-        public SteamP2PManager P2PManager { get; private set; }
+        public SteamP2PManager? P2PManager { get; private set; }
 
         /// <summary>
         /// Gets whether the local player is currently in a lobby.
@@ -175,6 +175,10 @@ namespace SteamNetworkLib
             _rules = new Core.NetworkRules();
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SteamNetworkClient"/> class with custom <see cref="NetworkRules"/>.
+        /// Call <see cref="Initialize"/> before using any other methods.
+        /// </summary>
         public SteamNetworkClient(Core.NetworkRules rules)
         {
             _rules = rules ?? new Core.NetworkRules();

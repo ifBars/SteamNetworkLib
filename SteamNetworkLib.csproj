@@ -6,6 +6,7 @@
     <Configurations>Mono;Il2cpp;MonoDebug;Il2cppDebug;Documentation</Configurations>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Version>1.1.0</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Mono'">
