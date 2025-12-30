@@ -35,7 +35,7 @@ namespace SteamNetworkLib.Core
         /// </summary>
         /// <param name="lobbyManager">The lobby manager instance to use for lobby operations.</param>
         /// <exception cref="ArgumentNullException">Thrown when lobbyManager is null.</exception>
-        public SteamMemberData(SteamLobbyManager lobbyManager)
+        public SteamMemberData(SteamLobbyManager? lobbyManager)
         {
             _lobbyManager = lobbyManager ?? throw new ArgumentNullException(nameof(lobbyManager));
 
