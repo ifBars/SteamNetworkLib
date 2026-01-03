@@ -237,7 +237,7 @@ if (gamePhase.IsDirty || roundNumber.IsDirty)
 
 For a comprehensive example demonstrating validation, rate limiting, and batch syncing, see:
 
-**[`Examples/AdvancedSyncVarExample.cs`](../Examples/AdvancedSyncVarExample.cs)**
+**[`Examples/AdvancedSyncVarExample.cs`](https://github.com/ifBars/SteamNetworkLib/blob/master/Examples/AdvancedSyncVarExample.cs)**
 
 This example includes:
 - Range validation with error handling
@@ -278,7 +278,7 @@ var data = client.CreateHostSyncVar("Data", myValue, options);
 
 For a comprehensive, production-ready example demonstrating all SyncVar features, see:
 
-**[`Examples/SyncVarExample.cs`](../Examples/SyncVarExample.cs)**
+**[`Examples/SyncVarExample.cs`](https://github.com/ifBars/SteamNetworkLib/blob/master/Examples/SyncVarExample.cs)**
 
 This example includes:
 - Host-authoritative game state (round tracking, settings, timer)
