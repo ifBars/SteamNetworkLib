@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <LangVersion>latest</LangVersion>
+    <DefineConstants>MONO</DefineConstants>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.6.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="FluentAssertions" Version="6.12.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SteamNetworkLib.csproj" />
+  </ItemGroup>
+
+  <!-- Reference Steamworks.NET from Mono game path -->
+  <ItemGroup>
+    <Reference Include="Steamworks.NET">
+      <HintPath>$(MonoAssembliesPath)\com.rlabrecque.steamworks.net.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Copy steam_api64.dll and Steamworks.NET for tests -->
+  <Target Name="CopySteamworksFiles" AfterTargets="Build">
+    <ItemGroup>
+      <SteamApiDll Include="$(MonoGameInstallPath)\steam_api64.dll" />
+      <SteamworksNetDll Include="$(MonoAssembliesPath)\com.rlabrecque.steamworks.net.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SteamApiDll)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" Condition="Exists('$(MonoGameInstallPath)\steam_api64.dll')" />
+    <Copy SourceFiles="@(SteamworksNetDll)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" Condition="Exists('$(MonoAssembliesPath)\com.rlabrecque.steamworks.net.dll')" />
+  </Target>
+
+</Project>

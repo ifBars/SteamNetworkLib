@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
 	<GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TargetFramework>netstandard2.1</TargetFramework>
@@ -893,18 +893,21 @@
     <Compile Remove="docs\**" />
     <Compile Remove="ScheduleOne\**" />
     <Compile Remove="_site\**" />
+    <Compile Remove="tests\**" />
     <EmbeddedResource Remove="api\**" />
     <EmbeddedResource Remove="BetterJukebox\**" />
     <EmbeddedResource Remove="docs\**" />
     <EmbeddedResource Remove="Examples\AudioStreamingExample\**" />
     <EmbeddedResource Remove="ScheduleOne\**" />
     <EmbeddedResource Remove="_site\**" />
+    <EmbeddedResource Remove="tests\**" />
     <None Remove="api\**" />
     <None Remove="BetterJukebox\**" />
     <None Remove="docs\**" />
     <None Remove="Examples\AudioStreamingExample\**" />
     <None Remove="ScheduleOne\**" />
     <None Remove="_site\**" />
+    <None Remove="tests\**" />
   </ItemGroup>
 
   <!-- Conditionally include/exclude ScheduleOne example -->
