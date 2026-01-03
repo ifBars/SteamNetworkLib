@@ -2,6 +2,7 @@ using SteamNetworkLib.Core;
 using SteamNetworkLib.Events;
 using SteamNetworkLib.Exceptions;
 using SteamNetworkLib.Models;
+using SteamNetworkLib.Sync;
 using SteamNetworkLib.Utilities;
 #if MONO
 using Steamworks;
@@ -27,7 +28,8 @@ namespace SteamNetworkLib
         private bool _disposed = false;
         private bool _isInitialized = false;
         private bool _versionCheckEnabled = true;
-        private readonly Core.NetworkRules _rules;
+        private readonly NetworkRules _rules;
+        private readonly List<IDisposable> _syncVars = new List<IDisposable>();
 
         /// <summary>
         /// The internal data key used for storing SteamNetworkLib version information.
@@ -152,12 +154,12 @@ namespace SteamNetworkLib
         /// <summary>
         /// Current network rules applied to P2P behavior.
         /// </summary>
-        public Core.NetworkRules NetworkRules => _rules;
+        public NetworkRules NetworkRules => _rules;
 
         /// <summary>
         /// Updates network rules at runtime and propagates to managers.
         /// </summary>
-        public void UpdateNetworkRules(Core.NetworkRules rules)
+        public void UpdateNetworkRules(NetworkRules rules)
         {
             if (rules == null) return;
             if (P2PManager != null)
@@ -172,16 +174,16 @@ namespace SteamNetworkLib
         /// </summary>
         public SteamNetworkClient()
         {
-            _rules = new Core.NetworkRules();
+            _rules = new NetworkRules();
         }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SteamNetworkClient"/> class with custom <see cref="NetworkRules"/>.
         /// Call <see cref="Initialize"/> before using any other methods.
         /// </summary>
-        public SteamNetworkClient(Core.NetworkRules rules)
+        public SteamNetworkClient(NetworkRules rules)
         {
-            _rules = rules ?? new Core.NetworkRules();
+            _rules = rules ?? new NetworkRules();
         }
 
         /// <summary>
@@ -754,8 +756,114 @@ namespace SteamNetworkLib
 
         #endregion
 
+        #region Synchronized Variables
+
         /// <summary>
-        /// Subscribes to events from the component managers.
+        /// Creates a host-authoritative synchronized variable.
+        /// </summary>
+        /// <typeparam name="T">The type of value to synchronize.</typeparam>
+        /// <param name="key">A unique key for this sync variable.</param>
+        /// <param name="defaultValue">The default value when no synced value exists.</param>
+        /// <param name="options">Optional configuration options.</param>
+        /// <param name="validator">Optional validator for value constraints.</param>
+        /// <returns>A new <see cref="HostSyncVar{T}"/> instance.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the client is not initialized.</exception>
+        /// <exception cref="ArgumentException">Thrown when key is null or empty.</exception>
+        /// <exception cref="SyncSerializationException">Thrown when the type T cannot be serialized.</exception>
+        /// <remarks>
+        /// <para><strong>Authority:</strong> Only the lobby host can modify this value.
+        /// Non-host writes are silently ignored (or logged if <see cref="NetworkSyncOptions.WarnOnIgnoredWrites"/> is enabled).</para>
+        /// 
+        /// <para><strong>Storage:</strong> Uses Steam lobby data, automatically synced by Steam to all lobby members.</para>
+        /// 
+        /// <para><strong>Use Cases:</strong> Game settings, round numbers, match state, or any host-controlled state.</para>
+        /// 
+        /// <para><strong>Validation:</strong> Optional validator can enforce constraints on values (e.g., ranges, formats).</para>
+        /// 
+        /// <example>
+        /// <code>
+        /// // Create a host-authoritative sync var
+        /// var roundNumber = client.CreateHostSyncVar("Round", 1);
+        /// 
+        /// // With validation
+        /// var scoreValidator = new RangeValidator&lt;int&gt;(0, 1000);
+        /// var score = client.CreateHostSyncVar("Score", 0, null, scoreValidator);
+        /// 
+        /// // Subscribe to changes
+        /// roundNumber.OnValueChanged += (oldVal, newVal) => 
+        ///     MelonLogger.Msg($"Round: {oldVal} -> {newVal}");
+        /// 
+        /// // Only host can modify - silently ignored for non-hosts
+        /// roundNumber.Value = 2;
+        /// </code>
+        /// </example>
+        /// </remarks>
+        public HostSyncVar<T> CreateHostSyncVar<T>(string key, T defaultValue, NetworkSyncOptions? options = null, ISyncValidator<T>? validator = null)
+        {
+            EnsureInitialized();
+            var syncVar = new HostSyncVar<T>(this, key, defaultValue, options, validator);
+            _syncVars.Add(syncVar);
+            return syncVar;
+        }
+
+        /// <summary>
+        /// Creates a client-owned synchronized variable where each client can set their own value.
+        /// </summary>
+        /// <typeparam name="T">The type of value to synchronize.</typeparam>
+        /// <param name="key">A unique key for this sync variable.</param>
+        /// <param name="defaultValue">The default value for clients who haven't set a value.</param>
+        /// <param name="options">Optional configuration options.</param>
+        /// <param name="validator">Optional validator for value constraints.</param>
+        /// <returns>A new <see cref="ClientSyncVar{T}"/> instance.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the client is not initialized.</exception>
+        /// <exception cref="ArgumentException">Thrown when key is null or empty.</exception>
+        /// <exception cref="SyncSerializationException">Thrown when the type T cannot be serialized.</exception>
+        /// <remarks>
+        /// <para><strong>Authority:</strong> Each client can only modify their own value.
+        /// All clients can read all other clients' values.</para>
+        /// 
+        /// <para><strong>Storage:</strong> Uses Steam lobby member data, automatically synced by Steam.</para>
+        /// 
+        /// <para><strong>Use Cases:</strong> Ready status, player loadouts, per-client preferences.</para>
+        /// 
+        /// <para><strong>Validation:</strong> Optional validator can enforce constraints on values.</para>
+        /// 
+        /// <example>
+        /// <code>
+        /// // Create a client-owned sync var
+        /// var isReady = client.CreateClientSyncVar("Ready", false);
+        /// 
+        /// // With validation
+        /// var teamValidator = new RangeValidator&lt;int&gt;(1, 4);
+        /// var team = client.CreateClientSyncVar("Team", 1, null, teamValidator);
+        /// 
+        /// // Subscribe to any client's changes
+        /// isReady.OnValueChanged += (playerId, oldVal, newVal) => 
+        ///     MelonLogger.Msg($"Player {playerId} ready: {newVal}");
+        /// 
+        /// // Set my own value
+        /// isReady.Value = true;
+        /// 
+        /// // Read another player's value
+        /// bool player2Ready = isReady.GetValue(player2Id);
+        /// 
+        /// // Get all players' values
+        /// var allReady = isReady.GetAllValues();
+        /// bool everyoneReady = allReady.Values.All(r => r);
+        /// </code>
+        /// </example>
+        /// </remarks>
+        public ClientSyncVar<T> CreateClientSyncVar<T>(string key, T defaultValue, NetworkSyncOptions? options = null, ISyncValidator<T>? validator = null)
+        {
+            EnsureInitialized();
+            var syncVar = new ClientSyncVar<T>(this, key, defaultValue, options, validator);
+            _syncVars.Add(syncVar);
+            return syncVar;
+        }
+
+        #endregion
+        /// <summary>
+        /// Subscribes to internal manager events and forwards them to client events.
         /// </summary>
         /// <remarks>
         /// This method is called during initialization to set up event forwarding.
@@ -765,7 +873,12 @@ namespace SteamNetworkLib
             // Simple event forwarding
             LobbyManager.OnLobbyJoined += (s, e) => OnLobbyJoined?.Invoke(this, e);
             LobbyManager.OnLobbyCreated += (s, e) => OnLobbyCreated?.Invoke(this, e);
-            LobbyManager.OnLobbyLeft += (s, e) => OnLobbyLeft?.Invoke(this, e);
+            LobbyManager.OnLobbyLeft += (s, e) =>
+            {
+                // Auto-dispose all sync vars when leaving lobby
+                DisposeSyncVars();
+                OnLobbyLeft?.Invoke(this, e);
+            };
             LobbyManager.OnMemberJoined += (s, e) => OnMemberJoined?.Invoke(this, e);
             LobbyManager.OnMemberLeft += (s, e) => OnMemberLeft?.Invoke(this, e);
             LobbyData.OnLobbyDataChanged += (s, e) => OnLobbyDataChanged?.Invoke(this, e);
@@ -788,6 +901,25 @@ namespace SteamNetworkLib
         private void SafeExecute(Func<Task> action, string operation)
         {
             Task.Run(async () => { try { await action(); } catch (Exception ex) { Console.WriteLine($"[SteamNetworkLib] Warning: Failed {operation}: {ex.Message}"); } });
+        }
+
+        /// <summary>
+        /// Disposes all registered sync vars. Called automatically when leaving a lobby.
+        /// </summary>
+        private void DisposeSyncVars()
+        {
+            foreach (var syncVar in _syncVars)
+            {
+                try
+                {
+                    syncVar?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SteamNetworkLib] Warning: Failed to dispose sync var: {ex.Message}");
+                }
+            }
+            _syncVars.Clear();
         }
 
         /// <summary>
@@ -834,7 +966,10 @@ namespace SteamNetworkLib
 
             try
             {
-                // Unsubscribe from all events first
+                // Dispose all sync vars first
+                DisposeSyncVars();
+
+                // Unsubscribe from all events
                 UnsubscribeFromEvents();
 
                 // Then dispose components

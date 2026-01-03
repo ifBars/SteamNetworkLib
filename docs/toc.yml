@@ -6,6 +6,8 @@
   href: lobby-management.md
 - name: Data Synchronization
   href: data-synchronization.md
+- name: Synchronized Variables
+  href: sync-vars.md
 - name: P2P Messaging
   href: p2p-messaging.md
 - name: Network Rules

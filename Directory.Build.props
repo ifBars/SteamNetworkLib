@@ -9,13 +9,25 @@
 
   <!-- Default paths - these should be overridden in Directory.Build.user.props -->
   <PropertyGroup>
+    <!-- Mono game installation path (base game) -->
+    <MonoGameInstallPath Condition="'$(MonoGameInstallPath)' == ''">D:\SteamLibrary\steamapps\common\Schedule I_alternate</MonoGameInstallPath>
+    
+    <!-- Il2Cpp game installation path (MelonLoader version) -->
     <Il2CppGameInstallPath Condition="'$(Il2CppGameInstallPath)' == ''">D:\SteamLibrary\steamapps\common\Schedule I_public</Il2CppGameInstallPath>
-    <GameInstallPath Condition="'$(GameInstallPath)' == ''">D:\SteamLibrary\steamapps\common\Schedule I_alternate</GameInstallPath>
-    <SteamworksManagedPath Condition="'$(SteamworksManagedPath)' == ''">$(GameInstallPath)\Schedule I_Data\Managed</SteamworksManagedPath>
-    <MelonLoaderNet35Path Condition="'$(MelonLoaderNet35Path)' == ''">$(GameInstallPath)\MelonLoader\net35</MelonLoaderNet35Path>
-    <MelonLoaderNet6Path Condition="'$(MelonLoaderNet6Path)' == ''">$(GameInstallPath)\MelonLoader\net6</MelonLoaderNet6Path>
-    <MelonLoaderIl2CppPath Condition="'$(MelonLoaderIl2CppPath)' == ''">$(GameInstallPath)\MelonLoader\Il2CppAssemblies</MelonLoaderIl2CppPath>
-    <ScheduleOneManagedPath Condition="'$(ScheduleOneManagedPath)' == ''">$(GameInstallPath)\Schedule I_Data\Managed</ScheduleOneManagedPath>
+    
+    <!-- Mono-specific paths -->
+    <MonoAssembliesPath Condition="'$(MonoAssembliesPath)' == ''">$(MonoGameInstallPath)\Schedule I_Data\Managed</MonoAssembliesPath>
+    <MelonLoaderNet35Path Condition="'$(MelonLoaderNet35Path)' == ''">$(MonoGameInstallPath)\MelonLoader\net35</MelonLoaderNet35Path>
+    
+    <!-- Il2Cpp-specific paths -->
+    <Il2CppAssembliesPath Condition="'$(Il2CppAssembliesPath)' == ''">$(Il2CppGameInstallPath)\MelonLoader\Il2CppAssemblies</Il2CppAssembliesPath>
+    <MelonLoaderNet6Path Condition="'$(MelonLoaderNet6Path)' == ''">$(Il2CppGameInstallPath)\MelonLoader\net6</MelonLoaderNet6Path>
+    
+    <!-- Backwards compatibility aliases (deprecated, use specific paths above) -->
+    <GameInstallPath Condition="'$(GameInstallPath)' == ''">$(MonoGameInstallPath)</GameInstallPath>
+    <SteamworksManagedPath Condition="'$(SteamworksManagedPath)' == ''">$(MonoAssembliesPath)</SteamworksManagedPath>
+    <MelonLoaderIl2CppPath Condition="'$(MelonLoaderIl2CppPath)' == ''">$(Il2CppAssembliesPath)</MelonLoaderIl2CppPath>
+    <ScheduleOneManagedPath Condition="'$(ScheduleOneManagedPath)' == ''">$(MonoAssembliesPath)</ScheduleOneManagedPath>
   </PropertyGroup>
 
   <!-- Build configuration specific properties -->

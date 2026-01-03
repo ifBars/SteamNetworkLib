@@ -107,16 +107,15 @@ namespace SteamNetworkLib.Models
             }
             catch (System.Exception ex)
             {
-#if IL2CPP && SCHEDULE_ONE_INTEGRATION
-                System.Console.WriteLine($"[IL2CPP] DataSyncMessage.Deserialize ERROR: {ex.Message}");
-                System.Console.WriteLine($"[IL2CPP] DataSyncMessage.Deserialize ERROR Stack: {ex.StackTrace}");
+                System.Console.WriteLine($"[SteamNetworkLib] DataSyncMessage.Deserialize ERROR: {ex.Message}");
+                System.Console.WriteLine($"[SteamNetworkLib] DataSyncMessage.Deserialize Stack Trace: {ex.StackTrace}");
                 
                 // Try to show the raw data for debugging
                 try {
                     var jsonStr = Encoding.UTF8.GetString(data);
-                    System.Console.WriteLine($"[IL2CPP] Raw JSON: {jsonStr}");
-                } catch {}
-#endif
+                    System.Console.WriteLine($"[SteamNetworkLib] Raw JSON: {jsonStr}");
+                } catch { }
+                
                 throw;
             }
         }

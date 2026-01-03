@@ -44,6 +44,8 @@ namespace SteamNetworkLib.Models
             }
             catch (System.Exception ex)
             {
+                System.Console.WriteLine($"[SteamNetworkLib] TextMessage.Deserialize ERROR: {ex.Message}");
+                System.Console.WriteLine($"[SteamNetworkLib] TextMessage.Deserialize Stack Trace: {ex.StackTrace}");
                 throw;
             }
         }

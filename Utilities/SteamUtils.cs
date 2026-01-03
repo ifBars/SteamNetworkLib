@@ -85,6 +85,8 @@ namespace SteamNetworkLib.Utilities
             catch (Exception ex)
             {
                 // If IsValid() throws (shouldn't happen but just in case), fall back to basic check
+                Console.WriteLine($"[SteamNetworkLib] SteamNetworkUtils.IsValidSteamID ERROR: {ex.Message}");
+                Console.WriteLine($"[SteamNetworkLib] SteamNetworkUtils.IsValidSteamID Stack Trace: {ex.StackTrace}");
                 return steamId.m_SteamID != 0 && steamId.m_SteamID != 1;
             }
         }

@@ -1,5 +1,5 @@
 # User-specific build properties
-Directory.Build.user.props
+#Directory.Build.user.props
 
 # Build results
 [Bb]in/

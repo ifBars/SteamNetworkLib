@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!-- User-specific build paths - modify these to match your environment -->
+  <PropertyGroup>
+    <!-- Mono game installation path (base game) -->
+    <MonoGameInstallPath>D:\SteamLibrary\steamapps\common\Schedule I_alternate</MonoGameInstallPath>
+    
+    <!-- Il2Cpp game installation path (MelonLoader version) -->
+    <Il2CppGameInstallPath>D:\SteamLibrary\steamapps\common\Schedule I_public</Il2CppGameInstallPath>
+    
+    <!-- Mono-specific paths (derived from MonoGameInstallPath) -->
+    <MonoAssembliesPath>$(MonoGameInstallPath)\Schedule I_Data\Managed</MonoAssembliesPath>
+    <MelonLoaderNet35Path>$(MonoGameInstallPath)\MelonLoader\net35</MelonLoaderNet35Path>
+    
+    <!-- Il2Cpp-specific paths (derived from Il2CppGameInstallPath) -->
+    <Il2CppAssembliesPath>$(Il2CppGameInstallPath)\MelonLoader\Il2CppAssemblies</Il2CppAssembliesPath>
+    <MelonLoaderNet6Path>$(Il2CppGameInstallPath)\MelonLoader\net6</MelonLoaderNet6Path>
+  </PropertyGroup>
+</Project>

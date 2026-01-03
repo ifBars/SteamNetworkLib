@@ -201,6 +201,8 @@ namespace SteamNetworkLib.Utilities
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[SteamNetworkLib] MessageSerializer.IsValidMessage ERROR: {ex.Message}");
+                Console.WriteLine($"[SteamNetworkLib] MessageSerializer.IsValidMessage Stack Trace: {ex.StackTrace}");
                 return false;
             }
         }
@@ -234,6 +236,8 @@ namespace SteamNetworkLib.Utilities
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[SteamNetworkLib] MessageSerializer.GetMessageType ERROR: {ex.Message}");
+                Console.WriteLine($"[SteamNetworkLib] MessageSerializer.GetMessageType Stack Trace: {ex.StackTrace}");
                 return null;
             }
         }

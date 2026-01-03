@@ -110,6 +110,8 @@ namespace SteamNetworkLib.Models
             catch (Exception ex)
             {
                 // Use default values as fallback
+                Console.WriteLine($"[SteamNetworkLib] P2PMessage.ParseJsonBase ERROR: {ex.Message}");
+                Console.WriteLine($"[SteamNetworkLib] P2PMessage.ParseJsonBase Stack Trace: {ex.StackTrace}");
                 SenderId = new CSteamID(76561197960265728); // Placeholder
                 Timestamp = DateTime.UtcNow;
             }
@@ -206,6 +208,8 @@ namespace SteamNetworkLib.Models
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[SteamNetworkLib] P2PMessage.ExtractJsonValue ERROR: {ex.Message}");
+                Console.WriteLine($"[SteamNetworkLib] P2PMessage.ExtractJsonValue Stack Trace: {ex.StackTrace}");
                 return string.Empty;
             }
         }

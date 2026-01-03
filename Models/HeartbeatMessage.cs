@@ -118,6 +118,8 @@ namespace SteamNetworkLib.Models
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[SteamNetworkLib] HeartbeatMessage.Deserialize ERROR: {ex.Message}");
+                Console.WriteLine($"[SteamNetworkLib] HeartbeatMessage.Deserialize Stack Trace: {ex.StackTrace}");
                 throw;
             }
         }
