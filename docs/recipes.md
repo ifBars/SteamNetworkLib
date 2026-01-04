@@ -2,6 +2,39 @@
 
 Short, focused examples for common tasks.
 
+## Host-authoritative sync var
+
+```csharp
+var roundNumber = client.CreateHostSyncVar("Round", 1);
+
+// Subscribe to changes
+roundNumber.OnValueChanged += (oldVal, newVal) =>
+{
+    MelonLogger.Msg($"Round {oldVal} -> {newVal}");
+};
+
+// Host sets new value (clients only read)
+roundNumber.Value = 2;
+```
+
+## Per-client sync var
+
+```csharp
+var isReady = client.CreateClientSyncVar("Ready", false);
+
+// Subscribe to any player's changes
+isReady.OnValueChanged += (playerId, oldVal, newVal) =>
+{
+    MelonLogger.Msg($"Player {playerId}: ready={newVal}");
+};
+
+// Set my own ready status
+isReady.Value = true;
+
+// Check if everyone is ready
+var allReady = isReady.GetAllValues().Values.All(r => r);
+```
+
 ## Broadcast a mod configuration to everyone
 
 ```csharp
