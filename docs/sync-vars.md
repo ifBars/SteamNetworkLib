@@ -125,7 +125,7 @@ var options = new NetworkSyncOptions
     // Log warnings when non-host tries to write (debugging)
     WarnOnIgnoredWrites = true,
     
-    // Add prefix to avoid key collisions with other mods
+    // Add prefix to avoid key collisions with other mods (IMPORTANT!)
     KeyPrefix = "MyMod_",
     
     // Disable auto-sync for manual batching (see below)
@@ -142,6 +142,28 @@ var options = new NetworkSyncOptions
 };
 
 var score = client.CreateHostSyncVar("Score", 0, options);
+```
+
+### KeyPrefix - Avoid Collisions
+
+**Always use a unique prefix for published mods to prevent key collisions with other mods.**
+
+```csharp
+// Good: Use your mod name as prefix
+var options = new NetworkSyncOptions { KeyPrefix = "MyMod_" };
+var score = client.CreateHostSyncVar("Score", 0, options);
+// Actual Steam key: "MyMod_Score"
+
+var teamName = client.CreateClientSyncVar("TeamName", "Alpha", options);
+// Actual Steam key: "MyMod_TeamName"
+```
+
+When using raw lobby/member data, apply prefixes manually:
+
+```csharp
+const string PREFIX = "MyMod_";
+client.SetLobbyData($"{PREFIX}version", "1.0.0");
+client.SetMyData($"{PREFIX}loadout", "1911");
 ```
 
 ## Value Validation

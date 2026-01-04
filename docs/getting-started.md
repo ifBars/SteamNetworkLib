@@ -71,6 +71,10 @@ public class YourAwesomeModMain : MelonMod
 }
 ```
 
+## Best Practices
+
+- **Use unique prefixes** for your mod's data keys to avoid collisions with other mods. See [Data Synchronization](data-synchronization.md#important-use-unique-prefixes) for details.
+
 From here, pick the guide you need next:
 
 - Lobby Management: create/join/leave/invite

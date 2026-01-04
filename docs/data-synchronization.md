@@ -1,6 +1,49 @@
 # Data Synchronization
 
+> **Recommendation**: For most use cases, use **[Synchronized Variables (SyncVars)](sync-vars.md)** instead. SyncVars provide a cleaner API with automatic type safety, validation, rate limiting, and built-in prefix handling via `NetworkSyncOptions.KeyPrefix`.
+
 Use lobby-wide and per-player key-value data for lightweight shared state like versions, flags, and small strings.
+
+## Raw API vs SyncVars
+
+**SyncVars are recommended** over the raw lobby/member data API for most use cases:
+
+| Feature | Raw API | SyncVars |
+|---------|---------|----------|
+| Prefix handling | Manual | Automatic via `NetworkSyncOptions.KeyPrefix` |
+| Type safety | String-only | Type-safe generic `T` |
+| Validation | Manual | Built-in validators |
+| Rate limiting | Manual | Built-in `MaxSyncsPerSecond` |
+| Events | Raw change events | Typed `OnValueChanged` events |
+| Batch updates | `SetMyDataBatch()` | Auto-sync batching |
+
+**Use SyncVars** for game state, player data, and most mod data. See [Synchronized Variables (SyncVars)](sync-vars.md) for details.
+
+---
+
+## Important: Use Unique Prefixes
+
+**Always use custom prefixes for your mod's data keys to avoid collisions with other mods.**
+
+```csharp
+// Good: Use a unique prefix for your mod
+const string PREFIX = "MyMod_";
+
+client.SetLobbyData($"{PREFIX}version", "1.0.0");
+client.SetMyData($"{PREFIX}loadout", "1911");
+
+// Bad: Generic keys may collide with other mods
+client.SetLobbyData("version", "1.0.0");  // May conflict!
+client.SetMyData("loadout", "1911");      // May conflict!
+```
+
+**Tip**: SyncVars handle prefixes automatically. Just set `KeyPrefix` in `NetworkSyncOptions`:
+
+```csharp
+var options = new NetworkSyncOptions { KeyPrefix = "MyMod_" };
+var score = client.CreateHostSyncVar("Score", 0, options);
+// Actual Steam key: "MyMod_Score" - no manual prefix needed!
+```
 
 ## Lobby-wide data (host-only)
 
