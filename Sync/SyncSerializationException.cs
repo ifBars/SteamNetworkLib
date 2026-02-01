@@ -12,6 +12,7 @@ namespace SteamNetworkLib.Sync
     /// <item><description>Serialization fails due to circular references or other issues</description></item>
     /// <item><description>Deserialization fails due to malformed data or type mismatch</description></item>
     /// </list>
+    /// <para>This exception provides detailed information about the type that failed to serialize/deserialize and the associated sync key when available.</para>
     /// </remarks>
     public class SyncSerializationException : Exception
     {
@@ -82,99 +83,6 @@ namespace SteamNetworkLib.Sync
             : base(message, innerException)
         {
             TargetType = targetType;
-            SyncKey = syncKey;
-        }
-    }
-
-    /// <summary>
-    /// Exception thrown when value validation fails before sync.
-    /// </summary>
-    public class SyncValidationException : Exception
-    {
-        /// <summary>
-        /// Gets the key associated with the sync operation, if available.
-        /// </summary>
-        public string? SyncKey { get; }
-
-        /// <summary>
-        /// Gets the invalid value, if available.
-        /// </summary>
-        public object? InvalidValue { get; }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SyncValidationException"/> class.
-        /// </summary>
-        /// <param name="message">The error message.</param>
-        public SyncValidationException(string message) 
-            : base(message)
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SyncValidationException"/> class.
-        /// </summary>
-        /// <param name="message">The error message.</param>
-        /// <param name="syncKey">The sync key associated with the operation.</param>
-        /// <param name="invalidValue">The value that failed validation.</param>
-        public SyncValidationException(string message, string syncKey, object? invalidValue) 
-            : base(message)
-        {
-            SyncKey = syncKey;
-            InvalidValue = invalidValue;
-        }
-    }
-
-    /// <summary>
-    /// Exception thrown when a sync operation fails due to network or state issues.
-    /// </summary>
-    public class SyncException : Exception
-    {
-        /// <summary>
-        /// Gets the key associated with the sync operation, if available.
-        /// </summary>
-        public string? SyncKey { get; }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SyncException"/> class.
-        /// </summary>
-        /// <param name="message">The error message.</param>
-        public SyncException(string message) 
-            : base(message)
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SyncException"/> class.
-        /// </summary>
-        /// <param name="message">The error message.</param>
-        /// <param name="innerException">The inner exception that caused this exception.</param>
-        public SyncException(string message, Exception innerException) 
-            : base(message, innerException)
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SyncException"/> class
-        /// with key information.
-        /// </summary>
-        /// <param name="message">The error message.</param>
-        /// <param name="syncKey">The sync key associated with the operation.</param>
-        public SyncException(string message, string syncKey) 
-            : base(message)
-        {
-            SyncKey = syncKey;
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SyncException"/> class
-        /// with full details.
-        /// </summary>
-        /// <param name="message">The error message.</param>
-        /// <param name="syncKey">The sync key associated with the operation.</param>
-        /// <param name="innerException">The inner exception that caused this exception.</param>
-        public SyncException(string message, string syncKey, Exception innerException) 
-            : base(message, innerException)
-        {
             SyncKey = syncKey;
         }
     }
