@@ -25,6 +25,92 @@ client.ProcessIncomingMessages();
 
 Create a type by inheriting `P2PMessage` and implement `MessageType`, `Serialize`, `Deserialize`.
 
+### Step 1: Define your custom message class
+
+```csharp
+using System.Text;
+using SteamNetworkLib.Models;
+
+public class TransactionMessage : P2PMessage
+{
+    public override string MessageType => "TRANSACTION";
+
+    public string TransactionId { get; set; } = string.Empty;
+    public string FromPlayer { get; set; } = string.Empty;
+    public string ToPlayer { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string Currency { get; set; } = "USD";
+
+    public override byte[] Serialize()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(this);
+        return Encoding.UTF8.GetBytes(json);
+    }
+
+    public override void Deserialize(byte[] data)
+    {
+        var json = Encoding.UTF8.GetString(data);
+        var deserialized = System.Text.Json.JsonSerializer.Deserialize<TransactionMessage>(json);
+        if (deserialized != null)
+        {
+            TransactionId = deserialized.TransactionId;
+            FromPlayer = deserialized.FromPlayer;
+            ToPlayer = deserialized.ToPlayer;
+            Amount = deserialized.Amount;
+            Currency = deserialized.Currency;
+            SenderId = deserialized.SenderId;
+            Timestamp = deserialized.Timestamp;
+        }
+    }
+}
+```
+
+### Step 2: Register a handler for your custom message type
+
+```csharp
+public override void OnInitializeMelon()
+{
+    client = new SteamNetworkClient();
+    if (client.Initialize())
+    {
+        // Register handler - this automatically registers the custom type
+        client.RegisterMessageHandler<TransactionMessage>(OnTransactionReceived);
+    }
+}
+
+private void OnTransactionReceived(TransactionMessage message, CSteamID sender)
+{
+    MelonLogger.Msg($"Transaction {message.TransactionId}: {message.Amount} {message.Currency}");
+}
+```
+
+### Step 3: Send and receive custom messages
+
+```csharp
+// Send a custom message
+var transaction = new TransactionMessage
+{
+    TransactionId = "txn-12345",
+    FromPlayer = "Player1",
+    ToPlayer = "Player2",
+    Amount = 100.00m,
+    Currency = "USD"
+};
+
+await client.SendMessageToPlayerAsync(targetId, transaction);
+
+// Or broadcast to all players
+client.BroadcastMessage(transaction);
+```
+
+### How it works
+
+The library receives message type identifiers as strings and needs a mapping to C# classes for deserialization. When you call `RegisterMessageHandler<T>()`, the library automatically registers your custom type. Built-in types (TEXT, DATA_SYNC, FILE_TRANSFER, STREAM, HEARTBEAT, EVENT) are pre-registered.
+
+## Sending custom messages
+
+Create a type by inheriting `P2PMessage` and implement `MessageType`, `Serialize`, `Deserialize`.
+
 ```csharp
 using System.Text;
 

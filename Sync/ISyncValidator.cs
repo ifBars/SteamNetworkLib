@@ -257,25 +257,20 @@ namespace SteamNetworkLib.Sync
         private readonly ISyncValidator<T>[] _validators;
 
         /// <summary>
-        /// Creates a composite validator that requires all validators to pass.
+        /// Initializes a new instance of the <see cref="CompositeValidator{T}"/> class.
         /// </summary>
         /// <param name="validators">Array of validators to check. All must pass for validation to succeed.</param>
         /// <exception cref="ArgumentNullException">Thrown when validators array is null.</exception>
-        /// <exception cref="ArgumentException">Thrown when validators array is empty.</exception>
         /// <remarks>
         /// <para>Validators are evaluated in the order provided.</para>
         /// <para>The error message from the first failing validator is returned.</para>
+        /// <para>If no validators are provided, all values pass validation.</para>
         /// </remarks>
         public CompositeValidator(params ISyncValidator<T>[] validators)
         {
             if (validators == null)
             {
                 throw new ArgumentNullException(nameof(validators));
-            }
-
-            if (validators.Length == 0)
-            {
-                throw new ArgumentException("At least one validator must be provided", nameof(validators));
             }
 
             _validators = validators;

@@ -46,3 +46,5 @@ _ReSharper*/
 
 # VS Code
 .vscode/ 
+AGENTS.md
+nexuspost.bbcode

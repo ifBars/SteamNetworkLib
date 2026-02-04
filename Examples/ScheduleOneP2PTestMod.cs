@@ -17,6 +17,44 @@ using UnityEngine;
 namespace ScheduleOneP2PTestMod
 {
     /// <summary>
+    /// Custom transaction message for testing custom P2P message types.
+    /// </summary>
+    public class TransactionMessage : P2PMessage
+    {
+        public override string MessageType => "TRANSACTION";
+
+        public string TransactionId { get; set; } = string.Empty;
+        public string FromPlayer { get; set; } = string.Empty;
+        public string ToPlayer { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public string Currency { get; set; } = "USD";
+        public string Description { get; set; } = string.Empty;
+
+        public override byte[] Serialize()
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(this);
+            return System.Text.Encoding.UTF8.GetBytes(json);
+        }
+
+        public override void Deserialize(byte[] data)
+        {
+            var json = System.Text.Encoding.UTF8.GetString(data);
+            var deserialized = System.Text.Json.JsonSerializer.Deserialize<TransactionMessage>(json);
+            if (deserialized != null)
+            {
+                TransactionId = deserialized.TransactionId;
+                FromPlayer = deserialized.FromPlayer;
+                ToPlayer = deserialized.ToPlayer;
+                Amount = deserialized.Amount;
+                Currency = deserialized.Currency;
+                Description = deserialized.Description;
+                SenderId = deserialized.SenderId;
+                Timestamp = deserialized.Timestamp;
+            }
+        }
+    }
+
+    /// <summary>
     /// Basic SteamNetworkLib P2P test mod for Schedule 1.
     /// Tests P2P packet sending and receiving functionality.
     /// </summary>
@@ -62,15 +100,25 @@ namespace ScheduleOneP2PTestMod
         {
             if (_networkClient == null) return;
 
-            // Register handlers for different message types
+            // Register handlers for built-in message types
             _networkClient.RegisterMessageHandler<TextMessage>(OnTextMessageReceived);
             _networkClient.RegisterMessageHandler<DataSyncMessage>(OnDataSyncReceived);
             _networkClient.RegisterMessageHandler<HeartbeatMessage>(OnHeartbeatReceived);
+
+            // Register handler for custom transaction message
+            // This automatically registers the custom type for deserialization
+            _networkClient.RegisterMessageHandler<TransactionMessage>(OnTransactionMessageReceived);
 
             // Subscribe to P2P events
             _networkClient.OnP2PMessageReceived += OnP2PMessageReceived;
 
             MelonLogger.Msg("✓ P2P event handlers registered");
+        }
+
+        private void OnTransactionMessageReceived(TransactionMessage message, CSteamID senderId)
+        {
+            var senderName = GetPlayerName(senderId);
+            MelonLogger.Msg($"[P2P TRANSACTION] {senderName}: {message.TransactionId} - {message.Amount} {message.Currency} ({message.Description})");
         }
 
         private void OnTextMessageReceived(TextMessage message, CSteamID senderId)
@@ -190,6 +238,19 @@ namespace ScheduleOneP2PTestMod
                 var heartbeatMessage = new HeartbeatMessage();
                 _networkClient.BroadcastMessage(heartbeatMessage);
                 MelonLogger.Msg($"[SENT] Heartbeat message #{_packetCounter}");
+
+                // Test 4: Send custom transaction message (tests custom message type support)
+                var transactionMessage = new TransactionMessage
+                {
+                    TransactionId = $"txn_{_packetCounter}_{DateTime.UtcNow.Ticks}",
+                    FromPlayer = "Player1",
+                    ToPlayer = "Player2",
+                    Amount = 100.00m * _packetCounter,
+                    Currency = "USD",
+                    Description = $"Test transaction #{_packetCounter}"
+                };
+                _networkClient.BroadcastMessage(transactionMessage);
+                MelonLogger.Msg($"[SENT] Transaction message #{_packetCounter}: {transactionMessage.TransactionId}");
 
                 MelonLogger.Msg($"=== Sent {_packetCounter} test packets to all lobby members ===");
             }

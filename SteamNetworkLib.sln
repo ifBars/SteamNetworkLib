@@ -1,9 +1,13 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36203.30
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamNetworkLib", "SteamNetworkLib.csproj", "{A113EEB7-4608-4F8F-AE02-446EE7FB4373}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamNetworkLib.Tests", "tests\SteamNetworkLib.Tests\SteamNetworkLib.Tests.csproj", "{B2C5D8E1-3A4F-4B6C-9D2E-8F5A7B3C1D0E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamNetworkLib.TestMod", "tests\SteamNetworkLib.TestMod\SteamNetworkLib.TestMod.csproj", "{C3D6E9F2-4B5G-5C7D-0E3F-9G6B8C4D2E1F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -24,6 +28,20 @@ Global
 		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.Mono|Any CPU.Build.0 = Mono|Any CPU
 		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.MonoDebug|Any CPU.ActiveCfg = MonoDebug|Any CPU
 		{A113EEB7-4608-4F8F-AE02-446EE7FB4373}.MonoDebug|Any CPU.Build.0 = MonoDebug|Any CPU
+		{B2C5D8E1-3A4F-4B6C-9D2E-8F5A7B3C1D0E}.Documentation|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2C5D8E1-3A4F-4B6C-9D2E-8F5A7B3C1D0E}.Il2cpp|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2C5D8E1-3A4F-4B6C-9D2E-8F5A7B3C1D0E}.Il2cppDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2C5D8E1-3A4F-4B6C-9D2E-8F5A7B3C1D0E}.Mono|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2C5D8E1-3A4F-4B6C-9D2E-8F5A7B3C1D0E}.Mono|Any CPU.Build.0 = Debug|Any CPU
+		{B2C5D8E1-3A4F-4B6C-9D2E-8F5A7B3C1D0E}.MonoDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2C5D8E1-3A4F-4B6C-9D2E-8F5A7B3C1D0E}.MonoDebug|Any CPU.Build.0 = Debug|Any CPU
+		{C3D6E9F2-4B5G-5C7D-0E3F-9G6B8C4D2E1F}.Documentation|Any CPU.ActiveCfg = Mono|Any CPU
+		{C3D6E9F2-4B5G-5C7D-0E3F-9G6B8C4D2E1F}.Il2cpp|Any CPU.ActiveCfg = Il2cpp|Any CPU
+		{C3D6E9F2-4B5G-5C7D-0E3F-9G6B8C4D2E1F}.Il2cppDebug|Any CPU.ActiveCfg = Il2cpp|Any CPU
+		{C3D6E9F2-4B5G-5C7D-0E3F-9G6B8C4D2E1F}.Mono|Any CPU.ActiveCfg = Mono|Any CPU
+		{C3D6E9F2-4B5G-5C7D-0E3F-9G6B8C4D2E1F}.Mono|Any CPU.Build.0 = Mono|Any CPU
+		{C3D6E9F2-4B5G-5C7D-0E3F-9G6B8C4D2E1F}.MonoDebug|Any CPU.ActiveCfg = Mono|Any CPU
+		{C3D6E9F2-4B5G-5C7D-0E3F-9G6B8C4D2E1F}.MonoDebug|Any CPU.Build.0 = Mono|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

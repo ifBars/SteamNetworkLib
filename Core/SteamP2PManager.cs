@@ -35,6 +35,9 @@ namespace SteamNetworkLib.Core
 
         // Message handling
         private readonly Dictionary<string, List<Action<P2PMessage, CSteamID>>> _messageHandlers = new Dictionary<string, List<Action<P2PMessage, CSteamID>>>();
+        
+        // Custom message type registry for dynamic message type creation
+        private readonly Dictionary<string, Type> _customMessageTypes = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Occurs when a raw P2P packet is received from another player.
@@ -306,12 +309,19 @@ namespace SteamNetworkLib.Core
 
         /// <summary>
         /// Registers a handler for a specific message type.
+        /// Automatically registers custom message types for deserialization.
         /// </summary>
         /// <typeparam name="T">The type of message to handle.</typeparam>
         /// <param name="handler">The handler function that will be called when messages of this type are received.</param>
         public void RegisterMessageHandler<T>(Action<T, CSteamID> handler) where T : P2PMessage, new()
         {
             var messageType = new T().MessageType;
+
+            // Automatically register custom message types
+            if (!_customMessageTypes.ContainsKey(messageType))
+            {
+                _customMessageTypes[messageType] = typeof(T);
+            }
 
             if (!_messageHandlers.ContainsKey(messageType))
             {
@@ -367,6 +377,33 @@ namespace SteamNetworkLib.Core
         {
             var messageType = new T().MessageType;
             _messageHandlers.Remove(messageType);
+        }
+
+        /// <summary>
+        /// Registers a custom message type for dynamic deserialization.
+        /// This is automatically called when you use RegisterMessageHandler, so you typically don't need to call this directly.
+        /// Only use this if you need to receive a message type without registering a handler for it.
+        /// Built-in types (TEXT, DATA_SYNC, FILE_TRANSFER, STREAM, HEARTBEAT, EVENT) are registered automatically.
+        /// </summary>
+        /// <typeparam name="T">The custom message type to register.</typeparam>
+        public void RegisterCustomMessageType<T>() where T : P2PMessage, new()
+        {
+            var messageType = new T().MessageType;
+            if (!_customMessageTypes.ContainsKey(messageType))
+            {
+                _customMessageTypes[messageType] = typeof(T);
+                Console.WriteLine($"[SteamNetworkLib] Registered custom message type: {messageType}");
+            }
+        }
+
+        /// <summary>
+        /// Unregisters a custom message type.
+        /// </summary>
+        /// <typeparam name="T">The custom message type to unregister.</typeparam>
+        public void UnregisterCustomMessageType<T>() where T : P2PMessage, new()
+        {
+            var messageType = new T().MessageType;
+            _customMessageTypes.Remove(messageType);
         }
 
         /// <summary>
@@ -558,6 +595,33 @@ namespace SteamNetworkLib.Core
             await Task.Delay(50);
         }
 
+        private P2PMessage? CreateCustomMessage(string messageType, byte[] data)
+        {
+            try
+            {
+                if (_customMessageTypes.TryGetValue(messageType, out var messageTypeInfo))
+                {
+                    var method = typeof(MessageSerializer).GetMethod("CreateMessage")
+                        ?.MakeGenericMethod(messageTypeInfo);
+                    if (method != null)
+                    {
+                        var parameters = new object[] { data };
+                        return (P2PMessage?)method.Invoke(null, parameters);
+                    }
+                }
+                else if (_messageHandlers.ContainsKey(messageType))
+                {
+                    Console.WriteLine($"[SteamNetworkLib] Received unregistered custom message type '{messageType}'. " +
+                        $"Call RegisterCustomMessageType<YourMessageClass>() during initialization to enable receiving this message type.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SteamNetworkLib] Error creating custom message of type '{messageType}': {ex.Message}");
+            }
+            return null;
+        }
+
         private void ProcessReceivedPacket(CSteamID senderId, byte[] data)
         {
             try
@@ -620,8 +684,8 @@ namespace SteamNetworkLib.Core
             try
             {
                 var messageType = MessageSerializer.GetMessageType(data);
-                
-                if (string.IsNullOrEmpty(messageType)) 
+
+                if (string.IsNullOrEmpty(messageType))
                 {
                     return;
                 }
@@ -629,38 +693,45 @@ namespace SteamNetworkLib.Core
                 P2PMessage? message = null;
 
 #if IL2CPP
-                switch (messageType)
+                // Use explicit if-else instead of switch expression for IL2CPP compatibility
+                if (messageType == "TEXT")
                 {
-                    // Use explicit if-else instead of switch expression for IL2CPP compatibility
-                    case "TEXT":
-                        message = MessageSerializer.CreateMessage<TextMessage>(data);
-                        break;
-                    case "DATA_SYNC":
-                        message = MessageSerializer.CreateMessage<DataSyncMessage>(data);
-                        break;
-                    case "FILE_TRANSFER":
-                        message = MessageSerializer.CreateMessage<FileTransferMessage>(data);
-                        break;
-                    case "STREAM":
-                        try
-                        {
-                            message = MessageSerializer.CreateMessage<StreamMessage>(data);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error creating StreamMessage: {ex.Message}");
-                        }
-
-                        break;
-                    case "HEARTBEAT":
-                        message = MessageSerializer.CreateMessage<HeartbeatMessage>(data);
-                        break;
-                    case "EVENT":
-                        message = MessageSerializer.CreateMessage<EventMessage>(data);
-                        break;
+                    message = MessageSerializer.CreateMessage<TextMessage>(data);
+                }
+                else if (messageType == "DATA_SYNC")
+                {
+                    message = MessageSerializer.CreateMessage<DataSyncMessage>(data);
+                }
+                else if (messageType == "FILE_TRANSFER")
+                {
+                    message = MessageSerializer.CreateMessage<FileTransferMessage>(data);
+                }
+                else if (messageType == "STREAM")
+                {
+                    try
+                    {
+                        message = MessageSerializer.CreateMessage<StreamMessage>(data);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error creating StreamMessage: {ex.Message}");
+                    }
+                }
+                else if (messageType == "HEARTBEAT")
+                {
+                    message = MessageSerializer.CreateMessage<HeartbeatMessage>(data);
+                }
+                else if (messageType == "EVENT")
+                {
+                    message = MessageSerializer.CreateMessage<EventMessage>(data);
+                }
+                else
+                {
+                    // Try to create custom message type from registry
+                    message = CreateCustomMessage(messageType, data);
                 }
 #else
-                // Original switch expression for Mono
+                // Original if-else for Mono with custom type support
                 message = messageType switch
                 {
                     "TEXT" => MessageSerializer.CreateMessage<TextMessage>(data),
@@ -669,7 +740,7 @@ namespace SteamNetworkLib.Core
                     "STREAM" => MessageSerializer.CreateMessage<StreamMessage>(data),
                     "HEARTBEAT" => MessageSerializer.CreateMessage<HeartbeatMessage>(data),
                     "EVENT" => MessageSerializer.CreateMessage<EventMessage>(data),
-                    _ => null
+                    _ => CreateCustomMessage(messageType, data)
                 };
 #endif
 
