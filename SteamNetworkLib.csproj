@@ -6,7 +6,7 @@
     <Configurations>Mono;Il2cpp;MonoDebug;Il2cppDebug;Documentation</Configurations>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Mono'">
@@ -225,9 +225,6 @@
     <Reference Include="Unity.InputSystem.ForUI">
       <HintPath>$(SteamworksManagedPath)\Unity.InputSystem.ForUI.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.InputSystem.RebindingUI">
-      <HintPath>$(SteamworksManagedPath)\Unity.InputSystem.RebindingUI.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='MonoDebug'">
@@ -425,9 +422,6 @@
     </Reference>
     <Reference Include="Unity.InputSystem.ForUI">
       <HintPath>$(SteamworksManagedPath)\Unity.InputSystem.ForUI.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.InputSystem.RebindingUI">
-      <HintPath>$(SteamworksManagedPath)\Unity.InputSystem.RebindingUI.dll</HintPath>
     </Reference>
     <!-- ScheduleOne Assembly Reference -->
     <Reference Include="Assembly-CSharp">
@@ -642,9 +636,6 @@
     <Reference Include="Unity.InputSystem.ForUI">
       <HintPath>$(SteamworksManagedPath)\Unity.InputSystem.ForUI.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.InputSystem.RebindingUI">
-      <HintPath>$(SteamworksManagedPath)\Unity.InputSystem.RebindingUI.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Il2cppDebug'">
@@ -839,9 +830,6 @@
     </Reference>
     <Reference Include="Unity.InputSystem.ForUI">
       <HintPath>$(MelonLoaderIl2CppPath)\Unity.InputSystem.ForUI.dll</HintPath>
-    </Reference>
-    <Reference Include="Unity.InputSystem.RebindingUI">
-      <HintPath>$(MelonLoaderIl2CppPath)\Unity.InputSystem.RebindingUI.dll</HintPath>
     </Reference>
   </ItemGroup>
 
