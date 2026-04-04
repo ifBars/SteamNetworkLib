@@ -882,6 +882,7 @@ namespace SteamNetworkLib
             LobbyManager.OnMemberJoined += (s, e) => OnMemberJoined?.Invoke(this, e);
             LobbyManager.OnMemberLeft += (s, e) => OnMemberLeft?.Invoke(this, e);
             LobbyData.OnLobbyDataChanged += (s, e) => OnLobbyDataChanged?.Invoke(this, e);
+            LobbyManager.OnLobbyDataChanged += (s, e) => OnLobbyDataChanged?.Invoke(this, e);
             P2PManager.OnMessageReceived += (s, e) => OnP2PMessageReceived?.Invoke(this, e);
 
             // Add version checking if enabled
