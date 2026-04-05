@@ -298,15 +298,16 @@ namespace SteamNetworkLib.Sync
             try
             {
                 var serialized = _client.GetLobbyData(_fullKey);
+
                 if (!string.IsNullOrEmpty(serialized))
                 {
                     var oldValue = _value;
-                    _value = _serializer.Deserialize<T>(serialized);
-                    
-                    // Only fire event if value actually changed
-                    if (!Equals(oldValue, _value))
+                    var newValue = _serializer.Deserialize<T>(serialized);
+
+                    if (!Equals(oldValue, newValue))
                     {
-                        OnValueChanged?.Invoke(oldValue, _value);
+                        _value = newValue;
+                        OnValueChanged?.Invoke(oldValue, newValue);
                     }
                 }
             }
@@ -347,7 +348,7 @@ namespace SteamNetworkLib.Sync
                     // Value was removed - reset to default
                     var oldValue = _value;
                     _value = _defaultValue;
-                    
+
                     if (!Equals(oldValue, _value))
                     {
                         OnValueChanged?.Invoke(oldValue, _value);
@@ -357,7 +358,7 @@ namespace SteamNetworkLib.Sync
                 {
                     var oldValue = _value;
                     _value = _serializer.Deserialize<T>(e.NewValue);
-                    
+
                     if (!Equals(oldValue, _value))
                     {
                         OnValueChanged?.Invoke(oldValue, _value);

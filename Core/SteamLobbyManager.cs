@@ -29,6 +29,10 @@ namespace SteamNetworkLib.Core
         private Callback<LobbyEnter_t>? _lobbyEnteredCallback;
         private Callback<LobbyChatUpdate_t>? _chatUpdateCallback;
         private Callback<GameLobbyJoinRequested_t>? _lobbyJoinRequestedCallback;
+        private Callback<LobbyDataUpdate_t>? _lobbyDataUpdateCallback;
+
+        // Lobby data cache for change detection in LobbyDataUpdate_t handler
+        private readonly Dictionary<string, string> _lobbyDataCache = new Dictionary<string, string>();
 
         // Task completion sources for async operations
         private TaskCompletionSource<LobbyInfo>? _createLobbyTcs;
@@ -78,6 +82,11 @@ namespace SteamNetworkLib.Core
         /// Occurs when a member leaves the current lobby.
         /// </summary>
         public event EventHandler<MemberLeftEventArgs>? OnMemberLeft;
+
+        /// <summary>
+        /// Occurs when lobby data is updated by Steam (remote changes from other players).
+        /// </summary>
+        public event EventHandler<LobbyDataChangedEventArgs>? OnLobbyDataChanged;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SteamLobbyManager"/> class.
@@ -247,11 +256,13 @@ namespace SteamNetworkLib.Core
             _lobbyEnteredCallback = Callback<LobbyEnter_t>.Create(new System.Action<LobbyEnter_t>(OnLobbyEnteredCallback));
             _chatUpdateCallback = Callback<LobbyChatUpdate_t>.Create(new System.Action<LobbyChatUpdate_t>(OnChatUpdateCallback));
             _lobbyJoinRequestedCallback = Callback<GameLobbyJoinRequested_t>.Create(new System.Action<GameLobbyJoinRequested_t>(OnLobbyJoinRequestedCallback));
+            _lobbyDataUpdateCallback = Callback<LobbyDataUpdate_t>.Create(new System.Action<LobbyDataUpdate_t>(OnLobbyDataUpdateCallback));
 #else
             _lobbyCreatedCallback = Callback<LobbyCreated_t>.Create(OnLobbyCreatedCallback);
             _lobbyEnteredCallback = Callback<LobbyEnter_t>.Create(OnLobbyEnteredCallback);
             _chatUpdateCallback = Callback<LobbyChatUpdate_t>.Create(OnChatUpdateCallback);
             _lobbyJoinRequestedCallback = Callback<GameLobbyJoinRequested_t>.Create(OnLobbyJoinRequestedCallback);
+            _lobbyDataUpdateCallback = Callback<LobbyDataUpdate_t>.Create(OnLobbyDataUpdateCallback);
 #endif
         }
 
@@ -365,6 +376,64 @@ namespace SteamNetworkLib.Core
             }
         }
 
+        private void OnLobbyDataUpdateCallback(LobbyDataUpdate_t result)
+        {
+            try
+            {
+                // Only process updates for our current lobby
+                if (!IsInLobby ||
+                    _currentLobby!.LobbyId.m_SteamID != result.m_ulSteamIDLobby)
+                {
+                    return;
+                }
+
+                if (result.m_bSuccess == 0)
+                {
+                    return;
+                }
+
+                var lobbyId = _currentLobby!.LobbyId;
+                var changedBy = new CSteamID(result.m_ulSteamIDMember);
+                var previousData = new Dictionary<string, string>(_lobbyDataCache);
+
+                // Refresh cache from Steam
+                _lobbyDataCache.Clear();
+                var dataCount = SteamMatchmaking.GetLobbyDataCount(lobbyId);
+                for (int i = 0; i < dataCount; i++)
+                {
+                    if (SteamMatchmaking.GetLobbyDataByIndex(lobbyId, i, out string key, 256, out string value, 8192))
+                    {
+                        if (!string.IsNullOrEmpty(key))
+                        {
+                            _lobbyDataCache[key] = value;
+                        }
+                    }
+                }
+
+                // Detect new/changed keys
+                foreach (var kvp in _lobbyDataCache)
+                {
+                    if (!previousData.TryGetValue(kvp.Key, out var oldValue) || oldValue != kvp.Value)
+                    {
+                        OnLobbyDataChanged?.Invoke(this, new LobbyDataChangedEventArgs(kvp.Key, oldValue, kvp.Value, changedBy));
+                    }
+                }
+
+                // Detect removed keys
+                foreach (var kvp in previousData)
+                {
+                    if (!_lobbyDataCache.ContainsKey(kvp.Key))
+                    {
+                        OnLobbyDataChanged?.Invoke(this, new LobbyDataChangedEventArgs(kvp.Key, kvp.Value, null, changedBy));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in lobby data update callback: {ex.Message}");
+            }
+        }
+
         private void OnLobbyJoinRequestedCallback(GameLobbyJoinRequested_t result)
         {
             try
@@ -448,6 +517,7 @@ namespace SteamNetworkLib.Core
                 _lobbyEnteredCallback?.Dispose();
                 _chatUpdateCallback?.Dispose();
                 _lobbyJoinRequestedCallback?.Dispose();
+                _lobbyDataUpdateCallback?.Dispose();
 
                 // Cancel any pending operations
                 _createLobbyTcs?.TrySetCanceled();

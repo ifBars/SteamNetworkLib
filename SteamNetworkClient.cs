@@ -881,7 +881,12 @@ namespace SteamNetworkLib
             };
             LobbyManager.OnMemberJoined += (s, e) => OnMemberJoined?.Invoke(this, e);
             LobbyManager.OnMemberLeft += (s, e) => OnMemberLeft?.Invoke(this, e);
+            // Two sources are intentional:
+            // LobbyData.OnLobbyDataChanged → immediate local notification when host calls SetData() (same frame)
+            // LobbyManager.OnLobbyDataChanged → reliable Steam LobbyDataUpdate_t path for all clients (incl. non-host)
+            // HostSyncVar.HandleLobbyDataChanged deduplicates via equality check; other consumers may receive both events.
             LobbyData.OnLobbyDataChanged += (s, e) => OnLobbyDataChanged?.Invoke(this, e);
+            LobbyManager.OnLobbyDataChanged += (s, e) => OnLobbyDataChanged?.Invoke(this, e);
             P2PManager.OnMessageReceived += (s, e) => OnP2PMessageReceived?.Invoke(this, e);
 
             // Add version checking if enabled
