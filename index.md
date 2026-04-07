@@ -43,7 +43,7 @@ steamNetwork.SetLobbyData("mod_version", "1.0.0");</code></pre>
     <div class="snl-feature-grid">
       <div class="snl-card">
         <h3>🔄 Dual Branch Support</h3>
-        <p>Avoid the complexity of managing Steamworks.NET and Il2CppSteamworks.NET separately, just reference the Mono version of SteamNetworkLib in your mod and start building.</p>
+        <p>Avoid the complexity of managing Steamworks.NET and Il2CppSteamworks.NET separately. Download the release DLL that matches your build target and reference that local copy in your mod project: Mono release DLL for Mono configs, Il2Cpp release DLL for Il2Cpp configs.</p>
       </div>
       <div class="snl-card">
         <h3>🏢 Lobby Management</h3>

@@ -32,6 +32,29 @@ Add references to:
 - Assembly-CSharp.dll
 - SteamNetworkLib.dll
 
+Download the matching SteamNetworkLib DLL from the [GitHub releases page](https://github.com/ifBars/SteamNetworkLib/releases), keep that DLL in your mod project or local dependency folder, and reference the runtime-specific binary:
+
+- Mono mods/configurations must reference the Mono release DLL
+- Il2Cpp mods/configurations must reference the Il2Cpp release DLL
+
+Do not mix these references across build targets, and do not point your mod project at a sibling `..\SteamNetworkLib\bin\...` source checkout.
+
+If your mod has separate Mono and Il2Cpp configurations, reference the downloaded DLLs conditionally in your `.csproj`:
+
+```xml
+<ItemGroup Condition="'$(Configuration)'=='Mono' or '$(Configuration)'=='MonoDebug'">
+  <Reference Include="SteamNetworkLib">
+    <HintPath>libs\SteamNetworkLib\Mono\SteamNetworkLib.dll</HintPath>
+  </Reference>
+</ItemGroup>
+
+<ItemGroup Condition="'$(Configuration)'=='Il2cpp' or '$(Configuration)'=='Il2cppDebug'">
+  <Reference Include="SteamNetworkLib">
+    <HintPath>libs\SteamNetworkLib\Il2cpp\SteamNetworkLib.dll</HintPath>
+  </Reference>
+</ItemGroup>
+```
+
 ## Minimal mod setup
 
 ```csharp

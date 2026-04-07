@@ -54,6 +54,13 @@ dotnet build -c Mono
 dotnet build -c Il2cpp
 ```
 
+When consuming SteamNetworkLib from another mod project, download the runtime-matching DLL from the [GitHub releases page](https://github.com/ifBars/SteamNetworkLib/releases) and reference that local copy from your mod project:
+
+- Mono config: reference the Mono release DLL
+- Il2Cpp config: reference the Il2Cpp release DLL
+
+Do not use the Mono DLL for Il2Cpp builds (or vice versa), and do not point your mod project at a sibling `..\SteamNetworkLib\bin\...` source checkout.
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
