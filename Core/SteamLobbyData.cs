@@ -175,7 +175,7 @@ namespace SteamNetworkLib.Core
                 string key = "";
                 string value = "";
 
-                if (SteamMatchmaking.GetLobbyDataByIndex(lobbyId, i, out key, 256, out value, 256))
+                if (SteamMatchmaking.GetLobbyDataByIndex(lobbyId, i, out key, 256, out value, 8192))
                 {
                     if (!string.IsNullOrEmpty(key))
                     {
@@ -274,7 +274,7 @@ namespace SteamNetworkLib.Core
                 string key = "";
                 string value = "";
 
-                if (SteamMatchmaking.GetLobbyDataByIndex(lobbyId, i, out key, 256, out value, 256))
+                if (SteamMatchmaking.GetLobbyDataByIndex(lobbyId, i, out key, 256, out value, 8192))
                 {
                     if (!string.IsNullOrEmpty(key))
                     {
