@@ -576,7 +576,79 @@ namespace SteamNetworkLib.Core
 #endif
             // Apply relay rule
             try { SteamNetworking.AllowP2PPacketRelay(_rules.EnableRelay); } catch { }
+
+            // Subscribe to lobby events so we can proactively accept P2P sessions for all lobby
+            // members. On IL2CPP, P2PSessionRequest_t.m_steamIDRemote is delivered as a garbage
+            // SteamID (observed: client LocalPlayerId 76561199485712034 arriving at the host's
+            // session request callback as 59927089712). Accepting that garbage ID does not
+            // authorize the real client, so client->host targeted sends fail until the host
+            // learns the correct ID some other way. Pre-accepting using IDs from
+            // SteamMatchmaking.GetLobbyMemberByIndex (which are correct on both runtimes) means
+            // we never depend on the broken callback path. Harmless on Mono - just redundant with
+            // the callback that already works there.
+            _lobbyManager.OnLobbyJoined += OnLobbyJoinedAcceptAllPeers;
+            _lobbyManager.OnMemberJoined += OnMemberJoinedAcceptPeer;
+
             IsActive = true;
+
+            // If we're already in a lobby at init time, pre-accept existing members immediately.
+            if (_lobbyManager.IsInLobby)
+            {
+                AcceptAllLobbyMembers();
+            }
+        }
+
+        private void OnLobbyJoinedAcceptAllPeers(object? sender, LobbyJoinedEventArgs e)
+        {
+            if (_disposed) return;
+            AcceptAllLobbyMembers();
+        }
+
+        private void OnMemberJoinedAcceptPeer(object? sender, MemberJoinedEventArgs e)
+        {
+            if (_disposed) return;
+            if (e.Member == null) return;
+            if (e.Member.SteamId == _lobbyManager.LocalPlayerID) return;
+            TryAdmitPeer(e.Member.SteamId);
+        }
+
+        private void AcceptAllLobbyMembers()
+        {
+            try
+            {
+                var members = _lobbyManager.GetLobbyMembers();
+                foreach (var member in members)
+                {
+                    if (member.SteamId == _lobbyManager.LocalPlayerID) continue;
+                    TryAdmitPeer(member.SteamId);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SteamNetworkLib] Error pre-accepting lobby member P2P sessions: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Runs the admission policy for a peer and accepts the P2P session if approved.
+        /// Honors <see cref="NetworkRules.AcceptOnlyFriends"/> and fires
+        /// <see cref="OnSessionRequested"/> so consumers can deny the peer.
+        /// </summary>
+        private bool TryAdmitPeer(CSteamID peerId)
+        {
+            var peerName = SteamNetworkUtils.GetPlayerName(peerId);
+            var eventArgs = new P2PSessionRequestEventArgs(peerId, peerName);
+            if (_rules.AcceptOnlyFriends && !SteamNetworkUtils.IsFriend(peerId))
+            {
+                eventArgs.ShouldAccept = false;
+            }
+            OnSessionRequested?.Invoke(this, eventArgs);
+
+            if (eventArgs.ShouldAccept)
+            {
+                return AcceptSession(peerId);
+            }
+            return false;
         }
 
         private async Task EnsureSessionAsync(CSteamID targetId)
@@ -789,20 +861,7 @@ namespace SteamNetworkLib.Core
         {
             try
             {
-                var requesterId = result.m_steamIDRemote;
-                var requesterName = SteamNetworkUtils.GetPlayerName(requesterId);
-
-                var eventArgs = new P2PSessionRequestEventArgs(requesterId, requesterName);
-                if (_rules.AcceptOnlyFriends && !SteamNetworkUtils.IsFriend(requesterId))
-                {
-                    eventArgs.ShouldAccept = false;
-                }
-                OnSessionRequested?.Invoke(this, eventArgs);
-
-                if (eventArgs.ShouldAccept)
-                {
-                    bool success = AcceptSession(requesterId);
-                }
+                TryAdmitPeer(result.m_steamIDRemote);
             }
             catch (Exception ex)
             {
@@ -847,6 +906,9 @@ namespace SteamNetworkLib.Core
             try
             {
                 IsActive = false;
+
+                _lobbyManager.OnLobbyJoined -= OnLobbyJoinedAcceptAllPeers;
+                _lobbyManager.OnMemberJoined -= OnMemberJoinedAcceptPeer;
 
                 foreach (var sessionId in _activeSessions.Keys.ToList())
                 {
