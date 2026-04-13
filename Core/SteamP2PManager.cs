@@ -609,7 +609,7 @@ namespace SteamNetworkLib.Core
             if (_disposed) return;
             if (e.Member == null) return;
             if (e.Member.SteamId == _lobbyManager.LocalPlayerID) return;
-            AcceptSession(e.Member.SteamId);
+            TryAdmitPeer(e.Member.SteamId);
         }
 
         private void AcceptAllLobbyMembers()
@@ -620,13 +620,35 @@ namespace SteamNetworkLib.Core
                 foreach (var member in members)
                 {
                     if (member.SteamId == _lobbyManager.LocalPlayerID) continue;
-                    AcceptSession(member.SteamId);
+                    TryAdmitPeer(member.SteamId);
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[SteamNetworkLib] Error pre-accepting lobby member P2P sessions: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Runs the admission policy for a peer and accepts the P2P session if approved.
+        /// Honors <see cref="NetworkRules.AcceptOnlyFriends"/> and fires
+        /// <see cref="OnSessionRequested"/> so consumers can deny the peer.
+        /// </summary>
+        private bool TryAdmitPeer(CSteamID peerId)
+        {
+            var peerName = SteamNetworkUtils.GetPlayerName(peerId);
+            var eventArgs = new P2PSessionRequestEventArgs(peerId, peerName);
+            if (_rules.AcceptOnlyFriends && !SteamNetworkUtils.IsFriend(peerId))
+            {
+                eventArgs.ShouldAccept = false;
+            }
+            OnSessionRequested?.Invoke(this, eventArgs);
+
+            if (eventArgs.ShouldAccept)
+            {
+                return AcceptSession(peerId);
+            }
+            return false;
         }
 
         private async Task EnsureSessionAsync(CSteamID targetId)
@@ -839,20 +861,7 @@ namespace SteamNetworkLib.Core
         {
             try
             {
-                var requesterId = result.m_steamIDRemote;
-                var requesterName = SteamNetworkUtils.GetPlayerName(requesterId);
-
-                var eventArgs = new P2PSessionRequestEventArgs(requesterId, requesterName);
-                if (_rules.AcceptOnlyFriends && !SteamNetworkUtils.IsFriend(requesterId))
-                {
-                    eventArgs.ShouldAccept = false;
-                }
-                OnSessionRequested?.Invoke(this, eventArgs);
-
-                if (eventArgs.ShouldAccept)
-                {
-                    bool success = AcceptSession(requesterId);
-                }
+                TryAdmitPeer(result.m_steamIDRemote);
             }
             catch (Exception ex)
             {
