@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://qconsulting.ca/fo3/ModConfig5.0.xsd">
+  <moduleName>SteamNetworkLib</moduleName>
+  <moduleImage path="icon.png" />
+  <installSteps order="Explicit">
+    <installStep name="Introduction">
+      <optionalFileGroups order="Explicit">
+        <group name="Introduction" type="SelectAll">
+          <plugins order="Explicit">
+            <plugin name="Introduction">
+              <description>Thank you for installing SteamNetworkLib.</description>
+              <image path="icon.png" />
+              <files>
+                <folder source="UserLibs" destination="UserLibs" priority="0" />
+              </files>
+              <typeDescriptor>
+                <type name="Optional" />
+              </typeDescriptor>
+            </plugin>
+          </plugins>
+        </group>
+      </optionalFileGroups>
+    </installStep>
+  </installSteps>
+</config>

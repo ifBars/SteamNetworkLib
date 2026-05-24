@@ -1,0 +1,359 @@
+name: Auto Release on Version Change
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "SteamNetworkLib.csproj"
+      - ".github/workflows/auto-release.yml"
+      - "packaging/**"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (leave empty to use SteamNetworkLib.csproj)"
+        required: false
+        type: string
+      assembly_branch:
+        description: "Assembly branch to use (main/master or beta)"
+        required: false
+        default: "main"
+        type: choice
+        options:
+          - main
+          - master
+          - beta
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version-changed: ${{ steps.check.outputs.changed }}
+      new-version: ${{ steps.check.outputs.version }}
+      prerelease: ${{ steps.check.outputs.prerelease }}
+      make-latest: ${{ steps.check.outputs.make_latest }}
+      release-name: ${{ steps.check.outputs.release_name }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Check if version needs release
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch --tags
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.version }}" ]]; then
+            current_version="${{ inputs.version }}"
+            echo "Manual trigger with version: $current_version"
+          else
+            current_version=$(grep -oPm1 '<Version>\K[^<]+' SteamNetworkLib.csproj || true)
+            if [[ -z "$current_version" ]]; then
+              echo "Failed to determine version from SteamNetworkLib.csproj" >&2
+              exit 1
+            fi
+            echo "Current version from SteamNetworkLib.csproj: $current_version"
+          fi
+
+          if git rev-parse "v$current_version" >/dev/null 2>&1; then
+            echo "Tag v$current_version already exists, skipping release"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Tag v$current_version does not exist, creating release"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "version=$current_version" >> "$GITHUB_OUTPUT"
+          echo "release_name=SteamNetworkLib v$current_version" >> "$GITHUB_OUTPUT"
+
+          if [[ "$current_version" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  create-release:
+    needs: check-version
+    if: needs.check-version.outputs.version-changed == 'true'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout SteamNetworkLib
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Determine Assembly Branch
+        id: assembly-branch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.assembly_branch }}" ]]; then
+            requested_branch="${{ inputs.assembly_branch }}"
+          else
+            requested_branch="master"
+          fi
+
+          case "$requested_branch" in
+            main|master|beta)
+              ;;
+            *)
+              echo "Unsupported assembly branch: $requested_branch"
+              exit 1
+              ;;
+          esac
+
+          if [[ "$requested_branch" == "beta" ]]; then
+            mono_branch="beta"
+            il2cpp_branch="beta"
+          else
+            mono_branch="main"
+            il2cpp_branch="main"
+          fi
+
+          echo "mono_branch=$mono_branch" >> "$GITHUB_OUTPUT"
+          echo "il2cpp_branch=$il2cpp_branch" >> "$GITHUB_OUTPUT"
+          echo "Using Mono assemblies from $mono_branch and IL2CPP assemblies from $il2cpp_branch (requested: $requested_branch)"
+
+      - name: Checkout Mono Game Assemblies
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.GAME_ASSEMBLIES_REPO }}
+          token: ${{ secrets.GAME_ASSEMBLIES_TOKEN }}
+          ref: ${{ steps.assembly-branch.outputs.mono_branch }}
+          path: game-assemblies
+          fetch-depth: 1
+
+      - name: Checkout IL2CPP Game Assemblies
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.IL2CPP_ASSEMBLIES_REPO }}
+          token: ${{ secrets.IL2CPP_ASSEMBLIES_TOKEN }}
+          ref: ${{ steps.assembly-branch.outputs.il2cpp_branch }}
+          path: il2cpp-assemblies
+          fetch-depth: 1
+
+      - name: Resolve Assembly Paths
+        id: assembly-paths
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f "game-assemblies/Managed/Assembly-CSharp.dll"
+          test -f "game-assemblies/Managed/com.rlabrecque.steamworks.net.dll"
+          test -f "game-assemblies/MelonLoader/MelonLoader.dll"
+
+          il2cpp_assemblies_source=""
+          if [[ -d "il2cpp-assemblies/MelonLoader/Il2CppAssemblies" ]]; then
+            il2cpp_assemblies_source="il2cpp-assemblies/MelonLoader/Il2CppAssemblies"
+          elif [[ -d "il2cpp-assemblies/Il2CppAssemblies" ]]; then
+            il2cpp_assemblies_source="il2cpp-assemblies/Il2CppAssemblies"
+          fi
+
+          if [[ -z "$il2cpp_assemblies_source" ]]; then
+            echo "IL2CPP assemblies directory not found in il2cpp-assemblies checkout" >&2
+            exit 1
+          fi
+
+          il2cpp_net6_source=""
+          if [[ -d "il2cpp-assemblies/MelonLoader/net6" ]]; then
+            il2cpp_net6_source="il2cpp-assemblies/MelonLoader/net6"
+          elif [[ -d "il2cpp-assemblies/net6" ]]; then
+            il2cpp_net6_source="il2cpp-assemblies/net6"
+          fi
+
+          if [[ -z "$il2cpp_net6_source" ]]; then
+            echo "IL2CPP net6 directory not found in il2cpp-assemblies checkout" >&2
+            exit 1
+          fi
+
+          test -f "$il2cpp_assemblies_source/Assembly-CSharp.dll"
+          test -f "$il2cpp_assemblies_source/Il2Cppcom.rlabrecque.steamworks.net.dll"
+          test -f "$il2cpp_net6_source/MelonLoader.dll"
+
+          echo "il2cpp_assemblies_source=$il2cpp_assemblies_source" >> "$GITHUB_OUTPUT"
+          echo "il2cpp_net6_source=$il2cpp_net6_source" >> "$GITHUB_OUTPUT"
+
+      - name: Create CI Build Properties
+        shell: pwsh
+        run: |
+          $props = @"
+          <Project>
+            <PropertyGroup>
+              <MonoGameInstallPath>`$(MSBuildThisFileDirectory)game-assemblies</MonoGameInstallPath>
+              <MonoAssembliesPath>`$(MSBuildThisFileDirectory)game-assemblies/Managed</MonoAssembliesPath>
+              <MelonLoaderNet35Path>`$(MSBuildThisFileDirectory)game-assemblies/MelonLoader</MelonLoaderNet35Path>
+              <Il2CppGameInstallPath>`$(MSBuildThisFileDirectory)il2cpp-assemblies</Il2CppGameInstallPath>
+              <Il2CppAssembliesPath>`$(MSBuildThisFileDirectory)${{ steps.assembly-paths.outputs.il2cpp_assemblies_source }}</Il2CppAssembliesPath>
+              <MelonLoaderNet6Path>`$(MSBuildThisFileDirectory)${{ steps.assembly-paths.outputs.il2cpp_net6_source }}</MelonLoaderNet6Path>
+            </PropertyGroup>
+          </Project>
+          "@
+
+          Set-Content -Path 'Directory.Build.user.props' -Value $props -Encoding UTF8
+
+      - name: Restore Mono Dependencies
+        run: dotnet restore SteamNetworkLib.csproj -p:Configuration=Mono
+
+      - name: Build Mono
+        run: dotnet build SteamNetworkLib.csproj --no-restore -c Mono -v minimal
+
+      - name: Run Unit Tests
+        run: dotnet test tests/SteamNetworkLib.Tests/SteamNetworkLib.Tests.csproj -c Mono --filter "FullyQualifiedName~Unit" -v minimal
+
+      - name: Reset IL2CPP Restore State
+        shell: bash
+        run: |
+          rm -rf obj/Il2cpp obj/Il2cppDebug
+          rm -f obj/project.assets.json obj/*.nuget.g.props obj/*.nuget.g.targets
+
+      - name: Restore IL2CPP Dependencies
+        run: dotnet restore SteamNetworkLib.csproj -p:Configuration=Il2cpp
+
+      - name: Build IL2CPP
+        run: dotnet build SteamNetworkLib.csproj --no-restore -c Il2cpp -v minimal
+
+      - name: Prepare Release Packages
+        shell: pwsh
+        run: |
+          $version = '${{ needs.check-version.outputs.new-version }}'
+          $releaseRoot = Join-Path $PWD 'release'
+          $monoRoot = Join-Path $releaseRoot 'SteamNetworkLib Mono'
+          $il2cppRoot = Join-Path $releaseRoot 'SteamNetworkLib Il2Cpp'
+
+          Remove-Item $releaseRoot -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path (Join-Path $monoRoot 'UserLibs') -Force | Out-Null
+          New-Item -ItemType Directory -Path (Join-Path $monoRoot 'fomod') -Force | Out-Null
+          New-Item -ItemType Directory -Path (Join-Path $il2cppRoot 'UserLibs') -Force | Out-Null
+          New-Item -ItemType Directory -Path (Join-Path $il2cppRoot 'fomod') -Force | Out-Null
+
+          Copy-Item 'bin/Mono/netstandard2.1/SteamNetworkLib.dll' (Join-Path $monoRoot 'UserLibs/SteamNetworkLib-Mono.dll')
+          Copy-Item 'bin/Il2cpp/netstandard2.1/SteamNetworkLib.dll' (Join-Path $il2cppRoot 'UserLibs/SteamNetworkLib-IL2Cpp.dll')
+          Copy-Item 'packaging/icon.png' (Join-Path $monoRoot 'icon.png')
+          Copy-Item 'packaging/icon.png' (Join-Path $il2cppRoot 'icon.png')
+          Copy-Item 'README.md' (Join-Path $monoRoot 'README.md')
+          Copy-Item 'README.md' (Join-Path $il2cppRoot 'README.md')
+          Copy-Item 'packaging/fomod/ModuleConfig.xml' (Join-Path $monoRoot 'fomod/ModuleConfig.xml')
+          Copy-Item 'packaging/fomod/ModuleConfig.xml' (Join-Path $il2cppRoot 'fomod/ModuleConfig.xml')
+
+          $manifestTemplate = @{
+            website_url = 'https://ifbars.github.io/SteamNetworkLib/'
+            description = 'A streamlined, object-oriented Steam networking library designed specifically for Schedule 1 mods.'
+            dependencies = @()
+            version_number = $version
+          }
+
+          $monoManifest = $manifestTemplate.Clone()
+          $monoManifest.name = 'SteamNetworkLib_Mono'
+          $monoManifest | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $monoRoot 'manifest.json') -Encoding UTF8
+
+          $il2cppManifest = $manifestTemplate.Clone()
+          $il2cppManifest.name = 'SteamNetworkLib_Il2Cpp'
+          $il2cppManifest | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $il2cppRoot 'manifest.json') -Encoding UTF8
+
+          $fomodInfo = @"
+          <fomod>
+            <Name>SteamNetworkLib</Name>
+            <Author>ifBars</Author>
+            <Version>$version</Version>
+            <Website>https://www.nexusmods.com/schedule1/mods/1396</Website>
+            <Description>A streamlined, object-oriented Steam networking library designed specifically for MelonLoader mods</Description>
+            <Groups>
+              <element>Utilities</element>
+            </Groups>
+          </fomod>
+          "@
+
+          Set-Content (Join-Path $monoRoot 'fomod/info.xml') $fomodInfo -Encoding UTF8
+          Set-Content (Join-Path $il2cppRoot 'fomod/info.xml') $fomodInfo -Encoding UTF8
+
+          Compress-Archive -Path (Join-Path $monoRoot 'UserLibs'),(Join-Path $monoRoot 'icon.png'),(Join-Path $monoRoot 'manifest.json'),(Join-Path $monoRoot 'README.md') -DestinationPath (Join-Path $releaseRoot 'SteamNetworkLib-Mono-TS.zip') -Force
+          Compress-Archive -Path (Join-Path $monoRoot 'UserLibs'),(Join-Path $monoRoot 'icon.png'),(Join-Path $monoRoot 'README.md'),(Join-Path $monoRoot 'fomod') -DestinationPath (Join-Path $releaseRoot 'SteamNetworkLib-Mono-Nexus.zip') -Force
+          Compress-Archive -Path (Join-Path $il2cppRoot 'UserLibs'),(Join-Path $il2cppRoot 'icon.png'),(Join-Path $il2cppRoot 'manifest.json'),(Join-Path $il2cppRoot 'README.md') -DestinationPath (Join-Path $releaseRoot 'SteamNetworkLib-Il2Cpp-TS.zip') -Force
+          Compress-Archive -Path (Join-Path $il2cppRoot 'UserLibs'),(Join-Path $il2cppRoot 'icon.png'),(Join-Path $il2cppRoot 'README.md'),(Join-Path $il2cppRoot 'fomod') -DestinationPath (Join-Path $releaseRoot 'SteamNetworkLib-Il2Cpp-Nexus.zip') -Force
+
+      - name: Generate Release Notes
+        shell: pwsh
+        run: |
+          $version = '${{ needs.check-version.outputs.new-version }}'
+          $lastTag = (git for-each-ref refs/tags --sort=-creatordate --format='%(refname:strip=2)' | Select-Object -First 1)
+
+          if ($lastTag) {
+            $commits = git log "$lastTag..HEAD" --pretty=format:"- %s (%h)" --no-merges
+            $compareLine = "**Compare**: https://github.com/${{ github.repository }}/compare/$lastTag...v$version"
+          } else {
+            $commits = git log --pretty=format:"- %s (%h)" --no-merges -n 10
+            $compareLine = "**Repository**: https://github.com/${{ github.repository }}/releases"
+          }
+
+          $commitLines = @($commits | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+          if ($commitLines.Count -eq 0) {
+            $commitText = "- Packaging-only release"
+          } else {
+            $commitText = [string]::Join("`n", $commitLines)
+          }
+
+          $releaseNotes = @(
+            "## SteamNetworkLib v$version"
+            ""
+            "### Packages"
+            ""
+            "- SteamNetworkLib-Mono-TS.zip"
+            "- SteamNetworkLib-Mono-Nexus.zip"
+            "- SteamNetworkLib-Il2Cpp-TS.zip"
+            "- SteamNetworkLib-Il2Cpp-Nexus.zip"
+            ""
+            "### Changes"
+            ""
+            $commitText
+            ""
+            $compareLine
+          ) -join "`n"
+
+          Set-Content 'release_notes.md' $releaseNotes
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check-version.outputs.new-version }}
+          name: ${{ needs.check-version.outputs.release-name }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ needs.check-version.outputs.prerelease == 'true' }}
+          make_latest: ${{ needs.check-version.outputs.make_latest }}
+          files: |
+            release/SteamNetworkLib-Mono-TS.zip
+            release/SteamNetworkLib-Mono-Nexus.zip
+            release/SteamNetworkLib-Il2Cpp-TS.zip
+            release/SteamNetworkLib-Il2Cpp-Nexus.zip
+
+      - name: Summary
+        shell: pwsh
+        run: |
+          Add-Content $env:GITHUB_STEP_SUMMARY "### Release Created Successfully"
+          Add-Content $env:GITHUB_STEP_SUMMARY ""
+          Add-Content $env:GITHUB_STEP_SUMMARY "**Version:** v${{ needs.check-version.outputs.new-version }}"
+          Add-Content $env:GITHUB_STEP_SUMMARY "**Prerelease:** ${{ needs.check-version.outputs.prerelease }}"
+          Add-Content $env:GITHUB_STEP_SUMMARY ""
+          Add-Content $env:GITHUB_STEP_SUMMARY "**Artifacts:**"
+          Add-Content $env:GITHUB_STEP_SUMMARY "- SteamNetworkLib-Mono-TS.zip"
+          Add-Content $env:GITHUB_STEP_SUMMARY "- SteamNetworkLib-Mono-Nexus.zip"
+          Add-Content $env:GITHUB_STEP_SUMMARY "- SteamNetworkLib-Il2Cpp-TS.zip"
+          Add-Content $env:GITHUB_STEP_SUMMARY "- SteamNetworkLib-Il2Cpp-Nexus.zip"
