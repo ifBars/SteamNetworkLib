@@ -10,8 +10,6 @@ namespace SteamNetworkLib.Utilities
     /// </summary>
     public static class MessageSerializer
     {
-        private const int MAX_MESSAGE_SIZE = 1024 * 4; // 4KB max for Steam P2P packets
-        
         /// <summary>
         /// Header identifier for SteamNetworkLib messages to validate message authenticity.
         /// </summary>
@@ -22,7 +20,7 @@ namespace SteamNetworkLib.Utilities
         /// </summary>
         /// <param name="message">The message to serialize.</param>
         /// <returns>Serialized message data.</returns>
-        /// <exception cref="P2PException">Thrown when serialization fails or message is too large.</exception>
+        /// <exception cref="P2PException">Thrown when serialization fails.</exception>
         public static byte[] SerializeMessage(P2PMessage message)
         {
             try
@@ -33,11 +31,6 @@ namespace SteamNetworkLib.Utilities
 
                 // Format: [HEADER(4)][TYPE_LENGTH(1)][TYPE][MESSAGE_DATA]
                 var totalSize = headerBytes.Length + 1 + messageTypeBytes.Length + messageData.Length;
-
-                if (totalSize > MAX_MESSAGE_SIZE)
-                {
-                    throw new P2PException($"Message too large: {totalSize} bytes (max: {MAX_MESSAGE_SIZE})");
-                }
 
                 var result = new byte[totalSize];
                 var offset = 0;

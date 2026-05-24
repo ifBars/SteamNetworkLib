@@ -30,12 +30,14 @@ Working directly with Steamworks.NET can be challenging and error-prone. Especia
 - Lobby: `CreateLobbyAsync`, `JoinLobbyAsync`, `GetLobbyMembers()`
 - Data: `SetLobbyData`, `SetMyData`, `GetPlayerData`
 - P2P: `RegisterMessageHandler<T>`, `SendMessageToPlayerAsync`, `BroadcastMessageAsync`
+- Dedicated servers: the same high-level API can run through DedicatedServerMod when connected to a dedicated server
 
 See the dedicated guides for details:
 
 - [Lobby Management](lobby-management.md)
 - [Data Synchronization](data-synchronization.md)
 - [P2P Messaging](p2p-messaging.md)
+- [Dedicated Server Compatibility](dedicated-server-compatibility.md)
 - [Events and Error Handling](events-and-errors.md)
 - [Recipes](recipes.md)
 

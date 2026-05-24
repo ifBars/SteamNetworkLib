@@ -11,6 +11,7 @@ using Il2CppSteamworks;
 #endif
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -30,6 +31,25 @@ namespace SteamNetworkLib
         private bool _versionCheckEnabled = true;
         private readonly NetworkRules _rules;
         private readonly List<IDisposable> _syncVars = new List<IDisposable>();
+
+        // Dedicated-server compatibility state
+        private readonly Dictionary<ulong, MemberInfo> _virtualMembers = new Dictionary<ulong, MemberInfo>();
+        private readonly Dictionary<string, string> _virtualLobbyData = new Dictionary<string, string>();
+        private readonly Dictionary<ulong, Dictionary<string, string>> _virtualMemberData =
+            new Dictionary<ulong, Dictionary<string, string>>();
+        private DedicatedServerMessagingBridge? _dedicatedBridge;
+        private NetworkSessionMode _sessionMode = NetworkSessionMode.None;
+        private string _virtualSessionId = string.Empty;
+        private CSteamID _virtualOwnerId = CSteamID.Nil;
+        private CSteamID _virtualLocalPlayerId = CSteamID.Nil;
+        private CSteamID _virtualServerSteamId = CSteamID.Nil;
+        private DateTime _lastDedicatedBridgeAttachAttemptUtc = DateTime.MinValue;
+        private DateTime _lastDedicatedRegisterAttemptUtc = DateTime.MinValue;
+        private DateTime _lastDedicatedSnapshotUtc = DateTime.MinValue;
+        private bool _dedicatedJoinEventRaised;
+
+        private static readonly TimeSpan DedicatedRegisterRetryDelay = TimeSpan.FromSeconds(2);
+        private static readonly JsonSyncSerializer DedicatedJsonSerializer = new JsonSyncSerializer();
 
         /// <summary>
         /// The internal data key used for storing SteamNetworkLib version information.
@@ -94,22 +114,83 @@ namespace SteamNetworkLib
         /// <summary>
         /// Gets whether the local player is currently in a lobby.
         /// </summary>
-        public bool IsInLobby => LobbyManager?.IsInLobby ?? false;
+        public bool IsInLobby
+        {
+            get
+            {
+                if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+                {
+                    return _virtualLocalPlayerId != CSteamID.Nil;
+                }
+
+                return LobbyManager?.IsInLobby ?? false;
+            }
+        }
 
         /// <summary>
         /// Gets whether the local player is the host of the current lobby.
         /// </summary>
-        public bool IsHost => LobbyManager?.IsHost ?? false;
+        public bool IsHost
+        {
+            get
+            {
+                if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+                {
+                    return _virtualOwnerId != CSteamID.Nil && _virtualOwnerId == _virtualLocalPlayerId;
+                }
+
+                return LobbyManager?.IsHost ?? false;
+            }
+        }
 
         /// <summary>
         /// Gets the Steam ID of the local player.
         /// </summary>
-        public CSteamID LocalPlayerId => LobbyManager?.LocalPlayerID ?? CSteamID.Nil;
+        public CSteamID LocalPlayerId
+        {
+            get
+            {
+                if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+                {
+                    return _virtualLocalPlayerId;
+                }
+
+                return LobbyManager?.LocalPlayerID ?? CSteamID.Nil;
+            }
+        }
 
         /// <summary>
         /// Gets information about the current lobby, or null if not in a lobby.
         /// </summary>
-        public LobbyInfo? CurrentLobby => LobbyManager?.CurrentLobby;
+        public LobbyInfo? CurrentLobby
+        {
+            get
+            {
+                if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+                {
+                    if (_virtualLocalPlayerId == CSteamID.Nil)
+                    {
+                        return null;
+                    }
+
+                    CSteamID lobbyId = _virtualServerSteamId != CSteamID.Nil
+                        ? _virtualServerSteamId
+                        : (_virtualOwnerId != CSteamID.Nil ? _virtualOwnerId : _virtualLocalPlayerId);
+
+                    return new LobbyInfo
+                    {
+                        LobbyId = lobbyId,
+                        OwnerId = _virtualOwnerId,
+                        MemberCount = _virtualMembers.Count,
+                        MaxMembers = Math.Max(1, _virtualMembers.Count),
+                        Name = "Dedicated Server Session",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                }
+
+                return LobbyManager?.CurrentLobby;
+            }
+        }
 
         /// <summary>
         /// Occurs when the local player joins a lobby.
@@ -155,6 +236,11 @@ namespace SteamNetworkLib
         /// Current network rules applied to P2P behavior.
         /// </summary>
         public NetworkRules NetworkRules => _rules;
+
+        /// <summary>
+        /// Gets the currently active networking session mode.
+        /// </summary>
+        public NetworkSessionMode SessionMode => _sessionMode;
 
         /// <summary>
         /// Updates network rules at runtime and propagates to managers.
@@ -211,6 +297,8 @@ namespace SteamNetworkLib
                 P2PManager = new SteamP2PManager(LobbyManager, _rules);
 
                 SubscribeToEvents();
+                AttachDedicatedBridgeIfAvailable();
+                UpdateSessionMode(forceApplyOverrides: true);
 
                 _isInitialized = true;
                 return true;
@@ -234,6 +322,8 @@ namespace SteamNetworkLib
         public async Task<LobbyInfo> CreateLobbyAsync(ELobbyType lobbyType = ELobbyType.k_ELobbyTypeFriendsOnly, int maxMembers = 4)
         {
             EnsureInitialized();
+            ClearVirtualSessionState(emitLobbyLeft: true);
+            UpdateSessionMode(forceApplyOverrides: true);
             return await LobbyManager.CreateLobbyAsync(lobbyType, maxMembers);
         }
 
@@ -247,6 +337,8 @@ namespace SteamNetworkLib
         public async Task<LobbyInfo> JoinLobbyAsync(CSteamID lobbyId)
         {
             EnsureInitialized();
+            ClearVirtualSessionState(emitLobbyLeft: true);
+            UpdateSessionMode(forceApplyOverrides: true);
             return await LobbyManager.JoinLobbyAsync(lobbyId);
         }
 
@@ -260,6 +352,13 @@ namespace SteamNetworkLib
         public void LeaveLobby()
         {
             EnsureInitialized();
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+            {
+                ClearVirtualSessionState(emitLobbyLeft: true);
+                UpdateSessionMode(forceApplyOverrides: true);
+                return;
+            }
+
             LobbyManager.LeaveLobby();
         }
 
@@ -274,6 +373,11 @@ namespace SteamNetworkLib
         public List<MemberInfo> GetLobbyMembers()
         {
             EnsureInitialized();
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+            {
+                return _virtualMembers.Values.Select(CloneMember).ToList();
+            }
+
             return LobbyManager.GetLobbyMembers();
         }
 
@@ -286,6 +390,11 @@ namespace SteamNetworkLib
         public void InviteFriend(CSteamID friendId)
         {
             EnsureInitialized();
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+            {
+                throw new LobbyException("Cannot invite friends while connected to a dedicated-server session");
+            }
+
             LobbyManager.InviteFriend(friendId);
         }
 
@@ -297,6 +406,11 @@ namespace SteamNetworkLib
         public void OpenInviteDialog()
         {
             EnsureInitialized();
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+            {
+                throw new LobbyException("Cannot open invite dialog while connected to a dedicated-server session");
+            }
+
             LobbyManager.OpenInviteDialog();
         }
 
@@ -317,6 +431,19 @@ namespace SteamNetworkLib
         public void SetLobbyData(string key, string value)
         {
             EnsureInitialized();
+
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+            {
+                ValidateDataKey(key);
+                if (!IsHost)
+                {
+                    return;
+                }
+
+                SendDedicatedLobbyDataUpdate(key, value ?? string.Empty);
+                return;
+            }
+
             LobbyData.SetData(key, value);
         }
 
@@ -330,6 +457,13 @@ namespace SteamNetworkLib
         public string? GetLobbyData(string key)
         {
             EnsureInitialized();
+
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+            {
+                ValidateDataKey(key);
+                return _virtualLobbyData.TryGetValue(key, out var value) ? value : null;
+            }
+
             return LobbyData.GetData(key);
         }
 
@@ -343,6 +477,14 @@ namespace SteamNetworkLib
         public void SetMyData(string key, string value)
         {
             EnsureInitialized();
+
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+            {
+                ValidateDataKey(key);
+                SendDedicatedMemberDataUpdate(key, value ?? string.Empty);
+                return;
+            }
+
             MemberData.SetMemberData(key, value);
         }
 
@@ -356,6 +498,13 @@ namespace SteamNetworkLib
         public string? GetMyData(string key)
         {
             EnsureInitialized();
+
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+            {
+                ValidateDataKey(key);
+                return GetVirtualMemberData(LocalPlayerId, key);
+            }
+
             return MemberData.GetMemberData(key);
         }
 
@@ -370,6 +519,13 @@ namespace SteamNetworkLib
         public string? GetPlayerData(CSteamID playerId, string key)
         {
             EnsureInitialized();
+
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+            {
+                ValidateDataKey(key);
+                return GetVirtualMemberData(playerId, key);
+            }
+
             return MemberData.GetMemberData(playerId, key);
         }
 
@@ -383,6 +539,23 @@ namespace SteamNetworkLib
         public Dictionary<CSteamID, string> GetDataForAllPlayers(string key)
         {
             EnsureInitialized();
+
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+            {
+                ValidateDataKey(key);
+                var result = new Dictionary<CSteamID, string>();
+                foreach (var member in _virtualMembers.Values)
+                {
+                    string? value = GetVirtualMemberData(member.SteamId, key);
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        result[member.SteamId] = value;
+                    }
+                }
+
+                return result;
+            }
+
             return MemberData.GetMemberDataForAllPlayers(key);
         }
 
@@ -395,6 +568,22 @@ namespace SteamNetworkLib
         public void SetMyDataBatch(Dictionary<string, string> data)
         {
             EnsureInitialized();
+
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+            {
+                if (data == null || data.Count == 0)
+                {
+                    return;
+                }
+
+                foreach (var kvp in data)
+                {
+                    SetMyData(kvp.Key, kvp.Value);
+                }
+
+                return;
+            }
+
             MemberData.SetMemberDataBatch(data);
         }
 
@@ -417,6 +606,21 @@ namespace SteamNetworkLib
         }
 
         /// <summary>
+        /// Sends a large byte payload to a specific player using reliable file-transfer chunks.
+        /// </summary>
+        /// <param name="playerId">The Steam ID of the target player.</param>
+        /// <param name="transferName">A developer-facing name for the transfer.</param>
+        /// <param name="data">The bytes to send.</param>
+        /// <param name="channel">The communication channel to use.</param>
+        /// <param name="chunkSize">Optional chunk payload size. When null, SteamNetworkLib calculates the largest safe reliable payload size.</param>
+        /// <returns>A task whose result indicates whether every chunk was accepted by Steam for sending.</returns>
+        public async Task<bool> SendLargeDataToPlayerAsync(CSteamID playerId, string transferName, byte[] data, int channel = 0, int? chunkSize = null)
+        {
+            EnsureInitialized();
+            return await P2PManager.SendLargeDataAsync(playerId, transferName, data, channel, chunkSize);
+        }
+
+        /// <summary>
         /// Sends a message to all players in the lobby.
         /// </summary>
         /// <param name="message">The message to broadcast.</param>
@@ -429,13 +633,14 @@ namespace SteamNetworkLib
         {
             EnsureInitialized();
             
-            var members = LobbyManager.GetLobbyMembers();
+            var members = GetLobbyMembers();
             var sendTasks = new List<Task<bool>>();
+            CSteamID localPlayerId = LocalPlayerId;
             
             // Create a task for each send operation
             foreach (var member in members)
             {
-                if (member.SteamId != LobbyManager.LocalPlayerID)
+                if (member.SteamId != localPlayerId)
                 {
                     sendTasks.Add(P2PManager.SendMessageAsync(member.SteamId, message));
                 }
@@ -569,6 +774,10 @@ namespace SteamNetworkLib
         public void ProcessIncomingMessages()
         {
             if (!_isInitialized) return;
+
+            AttachDedicatedBridgeIfAvailable();
+            UpdateSessionMode(forceApplyOverrides: false);
+            TryRegisterDedicatedSession(force: false);
 
 #if IL2CPP
             // CRITICAL: Must call SteamAPI.RunCallbacks() in IL2CPP to process Steam callbacks
@@ -871,12 +1080,21 @@ namespace SteamNetworkLib
         private void SubscribeToEvents()
         {
             // Simple event forwarding
-            LobbyManager.OnLobbyJoined += (s, e) => OnLobbyJoined?.Invoke(this, e);
-            LobbyManager.OnLobbyCreated += (s, e) => OnLobbyCreated?.Invoke(this, e);
+            LobbyManager.OnLobbyJoined += (s, e) =>
+            {
+                UpdateSessionMode(forceApplyOverrides: true);
+                OnLobbyJoined?.Invoke(this, e);
+            };
+            LobbyManager.OnLobbyCreated += (s, e) =>
+            {
+                UpdateSessionMode(forceApplyOverrides: true);
+                OnLobbyCreated?.Invoke(this, e);
+            };
             LobbyManager.OnLobbyLeft += (s, e) =>
             {
                 // Auto-dispose all sync vars when leaving lobby
                 DisposeSyncVars();
+                UpdateSessionMode(forceApplyOverrides: true);
                 OnLobbyLeft?.Invoke(this, e);
             };
             LobbyManager.OnMemberJoined += (s, e) => OnMemberJoined?.Invoke(this, e);
@@ -887,6 +1105,7 @@ namespace SteamNetworkLib
             // HostSyncVar.HandleLobbyDataChanged deduplicates via equality check; other consumers may receive both events.
             LobbyData.OnLobbyDataChanged += (s, e) => OnLobbyDataChanged?.Invoke(this, e);
             LobbyManager.OnLobbyDataChanged += (s, e) => OnLobbyDataChanged?.Invoke(this, e);
+            MemberData.OnMemberDataChanged += (s, e) => OnMemberDataChanged?.Invoke(this, e);
             P2PManager.OnMessageReceived += (s, e) => OnP2PMessageReceived?.Invoke(this, e);
 
             // Add version checking if enabled
@@ -894,7 +1113,610 @@ namespace SteamNetworkLib
             LobbyManager.OnLobbyJoined += (s, e) => SafeExecute(() => SetLibraryVersionData(), "setting version data on lobby join");
             LobbyManager.OnLobbyCreated += (s, e) => SafeExecute(() => SetLibraryVersionData(), "setting version data on lobby creation");
             LobbyManager.OnMemberJoined += (s, e) => SafeExecute(async () => { await Task.Delay(500); CheckLibraryVersionCompatibility(); }, "checking version compatibility");
-            MemberData.OnMemberDataChanged += (s, e) => { if (e.Key == STEAMNETWORKLIB_VERSION_KEY) SafeExecute(() => CheckLibraryVersionCompatibility(), "checking version compatibility on data change"); };
+            OnMemberDataChanged += (s, e) =>
+            {
+                if (e.Key == STEAMNETWORKLIB_VERSION_KEY)
+                {
+                    SafeExecute(() => CheckLibraryVersionCompatibility(), "checking version compatibility on data change");
+                }
+            };
+        }
+
+        private void AttachDedicatedBridgeIfAvailable()
+        {
+            if (_dedicatedBridge != null)
+            {
+                return;
+            }
+
+            if (DateTime.UtcNow - _lastDedicatedBridgeAttachAttemptUtc < DedicatedRegisterRetryDelay)
+            {
+                return;
+            }
+
+            _lastDedicatedBridgeAttachAttemptUtc = DateTime.UtcNow;
+            _dedicatedBridge = DedicatedServerMessagingBridge.TryCreate();
+            if (_dedicatedBridge == null)
+            {
+                return;
+            }
+
+            _dedicatedBridge.MessageReceived += OnDedicatedBridgeMessageReceived;
+            TryRegisterDedicatedSession(force: true);
+        }
+
+        private void OnDedicatedBridgeMessageReceived(string command, string data)
+        {
+            if (string.IsNullOrEmpty(command))
+            {
+                return;
+            }
+
+            if (string.Equals(command, DedicatedCompatibilityProtocol.SnapshotCommand, StringComparison.Ordinal))
+            {
+                HandleDedicatedSnapshot(data);
+                return;
+            }
+
+            if (string.Equals(command, DedicatedCompatibilityProtocol.MemberJoinedCommand, StringComparison.Ordinal))
+            {
+                HandleDedicatedMemberJoined(data);
+                return;
+            }
+
+            if (string.Equals(command, DedicatedCompatibilityProtocol.MemberLeftCommand, StringComparison.Ordinal))
+            {
+                HandleDedicatedMemberLeft(data);
+                return;
+            }
+
+            if (string.Equals(command, DedicatedCompatibilityProtocol.LobbyDataChangedCommand, StringComparison.Ordinal))
+            {
+                HandleDedicatedLobbyDataChanged(data);
+                return;
+            }
+
+            if (string.Equals(command, DedicatedCompatibilityProtocol.MemberDataChangedCommand, StringComparison.Ordinal))
+            {
+                HandleDedicatedMemberDataChanged(data);
+                return;
+            }
+
+            if (string.Equals(command, DedicatedCompatibilityProtocol.P2PMessageCommand, StringComparison.Ordinal))
+            {
+                HandleDedicatedP2PMessage(data);
+                return;
+            }
+
+            if ((string.Equals(command, "auth_result", StringComparison.Ordinal) ||
+                 string.Equals(command, "server_data", StringComparison.Ordinal)) &&
+                !IsDedicatedSessionFresh())
+            {
+                TryRegisterDedicatedSession(force: true);
+            }
+        }
+
+        private void TryRegisterDedicatedSession(bool force)
+        {
+            if (_dedicatedBridge == null)
+            {
+                return;
+            }
+
+            if (IsDedicatedSessionFresh())
+            {
+                return;
+            }
+
+            if (LobbyManager?.IsInLobby == true)
+            {
+                return;
+            }
+
+            if (!force && !_dedicatedBridge.IsDedicatedContextLikely && _sessionMode != NetworkSessionMode.DedicatedRelay)
+            {
+                return;
+            }
+
+            if (!force && DateTime.UtcNow - _lastDedicatedRegisterAttemptUtc < DedicatedRegisterRetryDelay)
+            {
+                return;
+            }
+
+            var register = new DedicatedCompatibilityProtocol.RegisterRequest
+            {
+                LibraryVersion = LibraryVersion
+            };
+
+            string payload = DedicatedJsonSerializer.Serialize(register);
+            _lastDedicatedRegisterAttemptUtc = DateTime.UtcNow;
+            _dedicatedBridge.TrySendToServer(DedicatedCompatibilityProtocol.RegisterCommand, payload);
+        }
+
+        private void HandleDedicatedSnapshot(string data)
+        {
+            DedicatedCompatibilityProtocol.SnapshotPayload? snapshot;
+            try
+            {
+                snapshot = DedicatedJsonSerializer.Deserialize<DedicatedCompatibilityProtocol.SnapshotPayload>(data ?? string.Empty);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (snapshot == null)
+            {
+                return;
+            }
+
+            var previousMembers = new Dictionary<ulong, MemberInfo>(_virtualMembers);
+            _virtualMembers.Clear();
+            _virtualLobbyData.Clear();
+            _virtualMemberData.Clear();
+
+            _virtualSessionId = snapshot.SessionId ?? string.Empty;
+            _virtualLocalPlayerId = ParseSteamIdOrNil(snapshot.LocalSteamId);
+            _virtualOwnerId = ParseSteamIdOrNil(snapshot.OwnerSteamId);
+            _virtualServerSteamId = ParseSteamIdOrNil(snapshot.ServerSteamId);
+            _lastDedicatedSnapshotUtc = DateTime.UtcNow;
+
+            if (snapshot.LobbyData != null)
+            {
+                foreach (var kvp in snapshot.LobbyData)
+                {
+                    _virtualLobbyData[kvp.Key] = kvp.Value ?? string.Empty;
+                }
+            }
+
+            if (snapshot.MemberData != null)
+            {
+                foreach (var memberKvp in snapshot.MemberData)
+                {
+                    if (!TryParseSteamId(memberKvp.Key, out var memberId))
+                    {
+                        continue;
+                    }
+
+                    var map = new Dictionary<string, string>();
+                    if (memberKvp.Value != null)
+                    {
+                        foreach (var kvp in memberKvp.Value)
+                        {
+                            map[kvp.Key] = kvp.Value ?? string.Empty;
+                        }
+                    }
+
+                    _virtualMemberData[memberId.m_SteamID] = map;
+                }
+            }
+
+            if (snapshot.Members != null)
+            {
+                foreach (var memberSnapshot in snapshot.Members)
+                {
+                    UpsertVirtualMember(memberSnapshot, raiseJoinedEvent: false);
+                }
+            }
+
+            RefreshVirtualOwnerFlags();
+
+            UpdateSessionMode(forceApplyOverrides: true);
+            RaiseDedicatedLobbyJoinedIfNeeded();
+
+            foreach (var kvp in _virtualMembers)
+            {
+                if (!previousMembers.ContainsKey(kvp.Key) && kvp.Value.SteamId != LocalPlayerId)
+                {
+                    OnMemberJoined?.Invoke(this, new MemberJoinedEventArgs(CloneMember(kvp.Value)));
+                }
+            }
+
+            foreach (var kvp in previousMembers)
+            {
+                if (!_virtualMembers.ContainsKey(kvp.Key) && kvp.Value.SteamId != LocalPlayerId)
+                {
+                    OnMemberLeft?.Invoke(this, new MemberLeftEventArgs(CloneMember(kvp.Value), "Left dedicated session"));
+                }
+            }
+        }
+
+        private void HandleDedicatedMemberJoined(string data)
+        {
+            var payload = DedicatedJsonSerializer.Deserialize<DedicatedCompatibilityProtocol.MemberJoinedPayload>(data ?? string.Empty);
+            if (payload?.Member == null)
+            {
+                return;
+            }
+
+            _virtualOwnerId = ParseSteamIdOrNil(payload.OwnerSteamId);
+            _lastDedicatedSnapshotUtc = DateTime.UtcNow;
+            UpdateSessionMode(forceApplyOverrides: false);
+            UpsertVirtualMember(payload.Member, raiseJoinedEvent: true);
+            RefreshVirtualOwnerFlags();
+        }
+
+        private void HandleDedicatedMemberLeft(string data)
+        {
+            var payload = DedicatedJsonSerializer.Deserialize<DedicatedCompatibilityProtocol.MemberLeftPayload>(data ?? string.Empty);
+            if (payload == null || !TryParseSteamId(payload.SteamId, out var memberId))
+            {
+                return;
+            }
+
+            _virtualOwnerId = ParseSteamIdOrNil(payload.OwnerSteamId);
+            _lastDedicatedSnapshotUtc = DateTime.UtcNow;
+
+            if (_virtualMembers.TryGetValue(memberId.m_SteamID, out var existing))
+            {
+                _virtualMembers.Remove(memberId.m_SteamID);
+                _virtualMemberData.Remove(memberId.m_SteamID);
+                if (existing.SteamId != LocalPlayerId)
+                {
+                    OnMemberLeft?.Invoke(this, new MemberLeftEventArgs(CloneMember(existing), "Left dedicated session"));
+                }
+            }
+
+            RefreshVirtualOwnerFlags();
+            UpdateSessionMode(forceApplyOverrides: false);
+        }
+
+        private void HandleDedicatedLobbyDataChanged(string data)
+        {
+            var payload = DedicatedJsonSerializer.Deserialize<DedicatedCompatibilityProtocol.LobbyDataChangedPayload>(data ?? string.Empty);
+            if (payload == null || string.IsNullOrEmpty(payload.Key))
+            {
+                return;
+            }
+
+            string? oldValue = _virtualLobbyData.TryGetValue(payload.Key, out var cached) ? cached : null;
+            if (payload.NewValue == null)
+            {
+                _virtualLobbyData.Remove(payload.Key);
+            }
+            else
+            {
+                _virtualLobbyData[payload.Key] = payload.NewValue;
+            }
+
+            CSteamID changedBy = ParseSteamIdOrNil(payload.ChangedBySteamId);
+            OnLobbyDataChanged?.Invoke(this, new LobbyDataChangedEventArgs(payload.Key, oldValue, payload.NewValue, changedBy));
+        }
+
+        private void HandleDedicatedMemberDataChanged(string data)
+        {
+            var payload = DedicatedJsonSerializer.Deserialize<DedicatedCompatibilityProtocol.MemberDataChangedPayload>(data ?? string.Empty);
+            if (payload == null || string.IsNullOrEmpty(payload.MemberSteamId) || string.IsNullOrEmpty(payload.Key))
+            {
+                return;
+            }
+
+            if (!TryParseSteamId(payload.MemberSteamId, out var memberId))
+            {
+                return;
+            }
+
+            Dictionary<string, string> map = GetOrCreateVirtualMemberMap(memberId.m_SteamID);
+            string? oldValue = map.TryGetValue(payload.Key, out var oldCached) ? oldCached : null;
+
+            if (payload.NewValue == null)
+            {
+                map.Remove(payload.Key);
+            }
+            else
+            {
+                map[payload.Key] = payload.NewValue;
+            }
+
+            OnMemberDataChanged?.Invoke(this, new MemberDataChangedEventArgs(memberId, payload.Key, oldValue, payload.NewValue));
+        }
+
+        private void HandleDedicatedP2PMessage(string data)
+        {
+            var payload = DedicatedJsonSerializer.Deserialize<DedicatedCompatibilityProtocol.P2PMessagePayload>(data ?? string.Empty);
+            if (payload == null || string.IsNullOrEmpty(payload.SenderSteamId) || string.IsNullOrEmpty(payload.DataBase64))
+            {
+                return;
+            }
+
+            if (!TryParseSteamId(payload.SenderSteamId, out var senderId))
+            {
+                return;
+            }
+
+            byte[] packet;
+            try
+            {
+                packet = Convert.FromBase64String(payload.DataBase64);
+            }
+            catch
+            {
+                return;
+            }
+
+            P2PManager?.ProcessExternalPacket(senderId, packet, payload.Channel);
+        }
+
+        private void SendDedicatedLobbyDataUpdate(string key, string value)
+        {
+            if (_dedicatedBridge == null)
+            {
+                return;
+            }
+
+            var request = new DedicatedCompatibilityProtocol.SetLobbyDataRequest
+            {
+                Key = key,
+                Value = value
+            };
+
+            _dedicatedBridge.TrySendToServer(
+                DedicatedCompatibilityProtocol.SetLobbyDataCommand,
+                DedicatedJsonSerializer.Serialize(request));
+        }
+
+        private void SendDedicatedMemberDataUpdate(string key, string value)
+        {
+            if (_dedicatedBridge == null)
+            {
+                return;
+            }
+
+            var request = new DedicatedCompatibilityProtocol.SetMemberDataRequest
+            {
+                Key = key,
+                Value = value
+            };
+
+            _dedicatedBridge.TrySendToServer(
+                DedicatedCompatibilityProtocol.SetMemberDataCommand,
+                DedicatedJsonSerializer.Serialize(request));
+        }
+
+        private Task<bool> SendPacketViaDedicatedAsync(CSteamID targetId, byte[] packetData, int channel, EP2PSend sendType)
+        {
+            if (_sessionMode != NetworkSessionMode.DedicatedRelay || _dedicatedBridge == null)
+            {
+                return Task.FromResult(false);
+            }
+
+            var request = new DedicatedCompatibilityProtocol.P2PSendRequest
+            {
+                TargetSteamId = targetId == CSteamID.Nil ? string.Empty : targetId.m_SteamID.ToString(CultureInfo.InvariantCulture),
+                DataBase64 = Convert.ToBase64String(packetData),
+                Channel = channel
+            };
+
+            bool sent = _dedicatedBridge.TrySendToServer(
+                DedicatedCompatibilityProtocol.P2PSendCommand,
+                DedicatedJsonSerializer.Serialize(request));
+            return Task.FromResult(sent);
+        }
+
+        private void UpdateSessionMode(bool forceApplyOverrides)
+        {
+            NetworkSessionMode nextMode = DetermineSessionMode();
+            if (_sessionMode == nextMode && !forceApplyOverrides)
+            {
+                return;
+            }
+
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay && nextMode != NetworkSessionMode.DedicatedRelay)
+            {
+                bool shouldEmitLeft = nextMode == NetworkSessionMode.None;
+                ClearVirtualSessionState(emitLobbyLeft: shouldEmitLeft);
+            }
+
+            _sessionMode = nextMode;
+            ConfigureP2POverridesForCurrentMode();
+        }
+
+        private NetworkSessionMode DetermineSessionMode()
+        {
+            if (LobbyManager?.IsInLobby == true)
+            {
+                return NetworkSessionMode.LobbyP2P;
+            }
+
+            if (_virtualLocalPlayerId != CSteamID.Nil && IsDedicatedSessionFresh())
+            {
+                return NetworkSessionMode.DedicatedRelay;
+            }
+
+            return NetworkSessionMode.None;
+        }
+
+        private bool IsDedicatedSessionFresh()
+        {
+            return _lastDedicatedSnapshotUtc != DateTime.MinValue && _virtualLocalPlayerId != CSteamID.Nil;
+        }
+
+        private void ConfigureP2POverridesForCurrentMode()
+        {
+            if (P2PManager == null)
+            {
+                return;
+            }
+
+            if (_sessionMode == NetworkSessionMode.DedicatedRelay)
+            {
+                P2PManager.ConfigureOverrides(
+                    SendPacketViaDedicatedAsync,
+                    () => _virtualMembers.Values.Select(CloneMember).ToList(),
+                    () => LocalPlayerId,
+                    () => IsInLobby);
+            }
+            else
+            {
+                P2PManager.ConfigureOverrides(null, null, null, null);
+            }
+        }
+
+        private void RaiseDedicatedLobbyJoinedIfNeeded()
+        {
+            if (_sessionMode != NetworkSessionMode.DedicatedRelay || _dedicatedJoinEventRaised)
+            {
+                return;
+            }
+
+            LobbyInfo? currentLobby = CurrentLobby;
+            if (currentLobby == null)
+            {
+                return;
+            }
+
+            _dedicatedJoinEventRaised = true;
+            OnLobbyJoined?.Invoke(this, new LobbyJoinedEventArgs(currentLobby));
+        }
+
+        private void ClearVirtualSessionState(bool emitLobbyLeft)
+        {
+            if (emitLobbyLeft && _dedicatedJoinEventRaised)
+            {
+                CSteamID lobbyId = _virtualServerSteamId != CSteamID.Nil
+                    ? _virtualServerSteamId
+                    : (_virtualOwnerId != CSteamID.Nil ? _virtualOwnerId : _virtualLocalPlayerId);
+                OnLobbyLeft?.Invoke(this, new LobbyLeftEventArgs(lobbyId, "Dedicated session ended"));
+            }
+
+            _virtualMembers.Clear();
+            _virtualLobbyData.Clear();
+            _virtualMemberData.Clear();
+            _virtualSessionId = string.Empty;
+            _virtualOwnerId = CSteamID.Nil;
+            _virtualLocalPlayerId = CSteamID.Nil;
+            _virtualServerSteamId = CSteamID.Nil;
+            _lastDedicatedSnapshotUtc = DateTime.MinValue;
+            _dedicatedJoinEventRaised = false;
+        }
+
+        private void UpsertVirtualMember(DedicatedCompatibilityProtocol.MemberSnapshot snapshot, bool raiseJoinedEvent)
+        {
+            if (snapshot == null || !TryParseSteamId(snapshot.SteamId, out var memberId))
+            {
+                return;
+            }
+
+            bool isLocal = _virtualLocalPlayerId != CSteamID.Nil
+                ? memberId == _virtualLocalPlayerId
+                : snapshot.IsLocalPlayer;
+
+            var member = new MemberInfo
+            {
+                SteamId = memberId,
+                DisplayName = snapshot.DisplayName ?? string.Empty,
+                IsOwner = _virtualOwnerId != CSteamID.Nil
+                    ? memberId == _virtualOwnerId
+                    : snapshot.IsOwner,
+                IsLocalPlayer = isLocal,
+                JoinedAt = FromUnixMillisecondsOrNow(snapshot.JoinedAtUnixMs)
+            };
+
+            bool existed = _virtualMembers.ContainsKey(memberId.m_SteamID);
+            _virtualMembers[memberId.m_SteamID] = member;
+
+            if (!existed && raiseJoinedEvent && member.SteamId != LocalPlayerId)
+            {
+                OnMemberJoined?.Invoke(this, new MemberJoinedEventArgs(CloneMember(member)));
+            }
+        }
+
+        private string? GetVirtualMemberData(CSteamID playerId, string key)
+        {
+            if (!_virtualMemberData.TryGetValue(playerId.m_SteamID, out var memberData))
+            {
+                return null;
+            }
+
+            if (!memberData.TryGetValue(key, out var value) || string.IsNullOrEmpty(value))
+            {
+                return null;
+            }
+
+            return value;
+        }
+
+        private Dictionary<string, string> GetOrCreateVirtualMemberMap(ulong playerSteamId)
+        {
+            if (!_virtualMemberData.TryGetValue(playerSteamId, out var map))
+            {
+                map = new Dictionary<string, string>();
+                _virtualMemberData[playerSteamId] = map;
+            }
+
+            return map;
+        }
+
+        private void RefreshVirtualOwnerFlags()
+        {
+            foreach (var kvp in _virtualMembers)
+            {
+                kvp.Value.IsOwner = _virtualOwnerId != CSteamID.Nil && kvp.Value.SteamId == _virtualOwnerId;
+            }
+        }
+
+        private static MemberInfo CloneMember(MemberInfo source)
+        {
+            return new MemberInfo
+            {
+                SteamId = source.SteamId,
+                DisplayName = source.DisplayName,
+                IsOwner = source.IsOwner,
+                IsLocalPlayer = source.IsLocalPlayer,
+                JoinedAt = source.JoinedAt
+            };
+        }
+
+        private static DateTime FromUnixMillisecondsOrNow(long unixMs)
+        {
+            if (unixMs <= 0)
+            {
+                return DateTime.UtcNow;
+            }
+
+            try
+            {
+                return DateTimeOffset.FromUnixTimeMilliseconds(unixMs).UtcDateTime;
+            }
+            catch
+            {
+                return DateTime.UtcNow;
+            }
+        }
+
+        private static void ValidateDataKey(string key)
+        {
+            if (string.IsNullOrEmpty(key))
+            {
+                throw new ArgumentException("Data key cannot be null or empty", nameof(key));
+            }
+
+            if (key.Length > 255)
+            {
+                throw new ArgumentException("Data key cannot exceed 255 characters", nameof(key));
+            }
+
+            if (key.StartsWith("__steam_", StringComparison.Ordinal))
+            {
+                throw new ArgumentException("Data key cannot start with '__steam_' (reserved by Steam)", nameof(key));
+            }
+        }
+
+        private static bool TryParseSteamId(string? raw, out CSteamID steamId)
+        {
+            steamId = CSteamID.Nil;
+            if (!ulong.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out ulong value) || value == 0)
+            {
+                return false;
+            }
+
+            steamId = new CSteamID(value);
+            return true;
+        }
+
+        private static CSteamID ParseSteamIdOrNil(string? raw)
+        {
+            return TryParseSteamId(raw, out var steamId) ? steamId : CSteamID.Nil;
         }
 
         private void SafeExecute(Action action, string operation)
@@ -982,6 +1804,9 @@ namespace SteamNetworkLib
                 MemberData?.Dispose();
                 LobbyData?.Dispose();
                 LobbyManager?.Dispose();
+                _dedicatedBridge?.Dispose();
+                _dedicatedBridge = null;
+                ClearVirtualSessionState(emitLobbyLeft: false);
             }
             catch (Exception ex)
             {

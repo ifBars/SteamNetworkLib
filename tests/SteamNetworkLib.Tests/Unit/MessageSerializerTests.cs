@@ -75,6 +75,25 @@ namespace SteamNetworkLib.Tests.Unit
         }
 
         [Fact]
+        public void SerializeMessage_LargeReliableCandidate_DoesNotApplyLegacyFourKilobyteCap()
+        {
+            // Arrange
+            var message = new DataSyncMessage
+            {
+                Key = "LargePayload",
+                Value = new string('x', 8 * 1024),
+                DataType = "string"
+            };
+
+            // Act
+            var serialized = MessageSerializer.SerializeMessage(message);
+
+            // Assert
+            serialized.Length.Should().BeGreaterThan(4 * 1024);
+            MessageSerializer.IsValidMessage(serialized).Should().BeTrue();
+        }
+
+        [Fact]
         public void DeserializeMessage_ValidData_ReturnsTypeAndData()
         {
             // Arrange

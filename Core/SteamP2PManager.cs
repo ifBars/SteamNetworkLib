@@ -39,6 +39,12 @@ namespace SteamNetworkLib.Core
         // Custom message type registry for dynamic message type creation
         private readonly Dictionary<string, Type> _customMessageTypes = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
 
+        // Optional overrides used by dedicated-server compatibility mode
+        private Func<CSteamID, byte[], int, EP2PSend, Task<bool>>? _packetSendOverride;
+        private Func<List<MemberInfo>>? _memberProviderOverride;
+        private Func<CSteamID>? _localPlayerProviderOverride;
+        private Func<bool>? _isInSessionOverride;
+
         /// <summary>
         /// Occurs when a raw P2P packet is received from another player.
         /// </summary>
@@ -70,9 +76,20 @@ namespace SteamNetworkLib.Core
         public bool IsActive { get; private set; }
 
         /// <summary>
-        /// Gets the maximum packet size in bytes that can be sent via P2P communication.
+        /// Gets Steam's maximum reliable P2P packet size in bytes.
         /// </summary>
-        public int MaxPacketSize => 1024 * 32; // 32KB max for larger audio/video packets
+        /// <remarks>
+        /// For send-type-specific limits, call <see cref="GetMaxPacketSize(EP2PSend)"/>.
+        /// Unreliable sends are limited to <see cref="SteamP2PLimits.UnreliableMaxPacketSize"/> bytes.
+        /// </remarks>
+        public int MaxPacketSize => SteamP2PLimits.ReliableMaxPacketSize;
+
+        /// <summary>
+        /// Gets Steam's maximum packet size for the selected send type.
+        /// </summary>
+        /// <param name="sendType">The Steam P2P send type.</param>
+        /// <returns>The maximum packet size, in bytes.</returns>
+        public int GetMaxPacketSize(EP2PSend sendType) => SteamP2PLimits.GetMaxPacketSize(sendType);
 
         /// <summary>
         /// Gets the number of currently active P2P sessions.
@@ -126,9 +143,7 @@ namespace SteamNetworkLib.Core
 
             try
             {
-                message.SenderId = _lobbyManager.LocalPlayerID;
-
-                var messageData = MessageSerializer.SerializeMessage(message);
+                message.SenderId = GetLocalPlayerId();
 
                 // Apply message policy if provided
                 if (_rules.MessagePolicy != null)
@@ -141,6 +156,8 @@ namespace SteamNetworkLib.Core
                     }
                     catch { }
                 }
+
+                var messageData = MessageSerializer.SerializeMessage(message);
 
                 return await SendPacketAsync(targetId, messageData, channel, sendType);
             }
@@ -171,13 +188,23 @@ namespace SteamNetworkLib.Core
                 throw new P2PException("Invalid target Steam ID", targetId);
             }
 
-            if (data.Length > MaxPacketSize)
+            var maxPacketSize = SteamP2PLimits.GetMaxPacketSize(sendType);
+            if (data.Length > maxPacketSize)
             {
-                throw new P2PException($"Packet too large: {data.Length} bytes (max: {MaxPacketSize})", targetId);
+                throw new P2PException($"Packet too large for {sendType}: {data.Length} bytes (max: {maxPacketSize})", targetId);
             }
 
             try
             {
+                if (_packetSendOverride != null)
+                {
+                    bool handled = await _packetSendOverride(targetId, data, channel, sendType);
+                    if (handled)
+                    {
+                        return true;
+                    }
+                }
+
                 await EnsureSessionAsync(targetId);
 
 #if IL2CPP
@@ -234,7 +261,7 @@ namespace SteamNetworkLib.Core
         /// <exception cref="P2PException">Thrown when not in a lobby.</exception>
         public void BroadcastMessage(P2PMessage message, int channel = 0, EP2PSend sendType = EP2PSend.k_EP2PSendReliable)
         {
-            if (!_lobbyManager.IsInLobby)
+            if (!IsInSession())
             {
                 throw new P2PException("Cannot broadcast - not in a lobby");
             }
@@ -247,7 +274,7 @@ namespace SteamNetworkLib.Core
 #if IL2CPP
             // For IL2CPP, serialize the message once to get the data
             // Set sender ID before serializing
-            message.SenderId = _lobbyManager.LocalPlayerID;
+            message.SenderId = GetLocalPlayerId();
             
             // Serialize once to get the data
             byte[] messageData = MessageSerializer.SerializeMessage(message);
@@ -255,10 +282,10 @@ namespace SteamNetworkLib.Core
             // Then broadcast the serialized data using our safe BroadcastPacket method
             BroadcastPacket(messageData, channel, sendType);
 #else
-            var members = _lobbyManager.GetLobbyMembers();
+            var members = GetSessionMembers();
             foreach (var member in members)
             {
-                if (member.SteamId != _lobbyManager.LocalPlayerID)
+                if (member.SteamId != GetLocalPlayerId())
                 {
                     _ = SendMessageAsync(member.SteamId, message, channel, sendType);
                 }
@@ -275,17 +302,17 @@ namespace SteamNetworkLib.Core
         /// <exception cref="P2PException">Thrown when not in a lobby.</exception>
         public void BroadcastPacket(byte[] data, int channel = 0, EP2PSend sendType = EP2PSend.k_EP2PSendReliable)
         {
-            if (!_lobbyManager.IsInLobby)
+            if (!IsInSession())
             {
                 throw new P2PException("Cannot broadcast - not in a lobby");
             }
 
 #if IL2CPP
             // For IL2CPP, we need to make a copy of the data for each send to prevent corruption
-            var members = _lobbyManager.GetLobbyMembers();
+            var members = GetSessionMembers();
             foreach (var member in members)
             {
-                if (member.SteamId != _lobbyManager.LocalPlayerID)
+                if (member.SteamId != GetLocalPlayerId())
                 {
                     // Create a fresh copy for each member to ensure memory safety
                     byte[] dataCopy = new byte[data.Length];
@@ -296,15 +323,60 @@ namespace SteamNetworkLib.Core
                 }
             }
 #else
-            var members = _lobbyManager.GetLobbyMembers();
+            var members = GetSessionMembers();
             foreach (var member in members)
             {
-                if (member.SteamId != _lobbyManager.LocalPlayerID)
+                if (member.SteamId != GetLocalPlayerId())
                 {
                     _ = SendPacketAsync(member.SteamId, data, channel, sendType);
                 }
             }
 #endif
+        }
+
+        /// <summary>
+        /// Configures optional transport/session overrides used for dedicated-server compatibility mode.
+        /// </summary>
+        /// <param name="packetSendOverride">Optional packet send delegate that bypasses SteamNetworking.SendP2PPacket.</param>
+        /// <param name="memberProvider">Optional member provider used for broadcast target resolution outside Steam lobbies.</param>
+        /// <param name="localPlayerProvider">Optional local player provider used as sender ID in override mode.</param>
+        /// <param name="isInSessionProvider">Optional session state provider for non-lobby transports.</param>
+        public void ConfigureOverrides(
+            Func<CSteamID, byte[], int, EP2PSend, Task<bool>>? packetSendOverride,
+            Func<List<MemberInfo>>? memberProvider,
+            Func<CSteamID>? localPlayerProvider,
+            Func<bool>? isInSessionProvider)
+        {
+            _packetSendOverride = packetSendOverride;
+            _memberProviderOverride = memberProvider;
+            _localPlayerProviderOverride = localPlayerProvider;
+            _isInSessionOverride = isInSessionProvider;
+        }
+
+        /// <summary>
+        /// Injects an externally received packet into the standard SteamNetworkLib packet pipeline.
+        /// </summary>
+        /// <param name="senderId">Logical sender Steam ID.</param>
+        /// <param name="data">Serialized SteamNetworkLib packet bytes.</param>
+        internal void ProcessExternalPacket(CSteamID senderId, byte[] data)
+        {
+            ProcessExternalPacket(senderId, data, channel: 0);
+        }
+
+        /// <summary>
+        /// Injects an externally received packet into the standard SteamNetworkLib packet pipeline.
+        /// </summary>
+        /// <param name="senderId">Logical sender Steam ID.</param>
+        /// <param name="data">Serialized SteamNetworkLib packet bytes.</param>
+        /// <param name="channel">Logical P2P channel associated with the packet.</param>
+        internal void ProcessExternalPacket(CSteamID senderId, byte[] data, int channel)
+        {
+            if (!IsActive || data == null || data.Length == 0)
+            {
+                return;
+            }
+
+            ProcessReceivedPacket(senderId, data, channel);
         }
 
         /// <summary>
@@ -427,15 +499,6 @@ namespace SteamNetworkLib.Core
                 {
                     while (SteamNetworking.IsP2PPacketAvailable(out packetSize, channel))
                     {
-                        if (packetSize > MaxPacketSize)
-                        {
-                            // Need to read and discard the oversized packet
-                            var discardData = new byte[packetSize];
-                            uint discardBytesRead;
-                            SteamNetworking.ReadP2PPacket(discardData, packetSize, out discardBytesRead, out remoteId, channel);
-                            continue;
-                        }
-
                         // Use Il2CppStructArray directly to avoid marshalling issues
                         var il2cppBuffer = new Il2CppStructArray<byte>(packetSize);
                         uint bytesRead;
@@ -450,18 +513,13 @@ namespace SteamNetworkLib.Core
                             }
 
                             // Process the packet
-                            ProcessReceivedPacket(remoteId, data);
+                            ProcessReceivedPacket(remoteId, data, channel);
                         }
                     }
                 }
 #else
                 while (SteamNetworking.IsP2PPacketAvailable(out packetSize))
                 {
-                    if (packetSize > MaxPacketSize)
-                    {
-                        continue;
-                    }
-
                     var data = new byte[packetSize];
                     uint bytesRead;
 
@@ -474,7 +532,7 @@ namespace SteamNetworkLib.Core
                             data = trimmedData;
                         }
 
-                        ProcessReceivedPacket(remoteId, data);
+                        ProcessReceivedPacket(remoteId, data, 0);
                     }
                 }
 #endif
@@ -576,26 +634,108 @@ namespace SteamNetworkLib.Core
 #endif
             // Apply relay rule
             try { SteamNetworking.AllowP2PPacketRelay(_rules.EnableRelay); } catch { }
-
-            // Subscribe to lobby events so we can proactively accept P2P sessions for all lobby
-            // members. On IL2CPP, P2PSessionRequest_t.m_steamIDRemote is delivered as a garbage
-            // SteamID (observed: client LocalPlayerId 76561199485712034 arriving at the host's
-            // session request callback as 59927089712). Accepting that garbage ID does not
-            // authorize the real client, so client->host targeted sends fail until the host
-            // learns the correct ID some other way. Pre-accepting using IDs from
-            // SteamMatchmaking.GetLobbyMemberByIndex (which are correct on both runtimes) means
-            // we never depend on the broken callback path. Harmless on Mono - just redundant with
-            // the callback that already works there.
             _lobbyManager.OnLobbyJoined += OnLobbyJoinedAcceptAllPeers;
             _lobbyManager.OnMemberJoined += OnMemberJoinedAcceptPeer;
-
             IsActive = true;
 
-            // If we're already in a lobby at init time, pre-accept existing members immediately.
             if (_lobbyManager.IsInLobby)
             {
                 AcceptAllLobbyMembers();
             }
+        }
+
+        /// <summary>
+        /// Sends a large byte payload as reliable file-transfer chunks.
+        /// </summary>
+        /// <param name="targetId">The Steam ID of the target player.</param>
+        /// <param name="transferName">A developer-facing name for the transfer.</param>
+        /// <param name="data">The bytes to send.</param>
+        /// <param name="channel">The communication channel to use.</param>
+        /// <param name="chunkSize">Optional chunk payload size. When null, the largest safe reliable payload size is calculated.</param>
+        /// <returns>True if every chunk was accepted by Steam for sending; otherwise, false.</returns>
+        public async Task<bool> SendLargeDataAsync(CSteamID targetId, string transferName, byte[] data, int channel = 0, int? chunkSize = null)
+        {
+            if (data == null)
+            {
+                throw new ArgumentNullException(nameof(data));
+            }
+
+            var transferId = Guid.NewGuid().ToString("N");
+            var payloadSize = chunkSize ?? CalculateFileTransferChunkPayloadSize(transferId, transferName, data.Length);
+            if (payloadSize <= 0)
+            {
+                throw new P2PException("Unable to calculate a valid file-transfer chunk size.", targetId);
+            }
+
+            var maxPayloadSize = CalculateFileTransferChunkPayloadSize(transferId, transferName, data.Length);
+            if (payloadSize > maxPayloadSize)
+            {
+                throw new P2PException($"Chunk payload too large: {payloadSize} bytes (max: {maxPayloadSize})", targetId);
+            }
+
+            var totalChunks = Math.Max(1, (int)Math.Ceiling((double)data.Length / payloadSize));
+            for (int i = 0; i < totalChunks; i++)
+            {
+                var offset = i * payloadSize;
+                var length = Math.Min(payloadSize, data.Length - offset);
+                var slice = new byte[length];
+                if (length > 0)
+                {
+                    Array.Copy(data, offset, slice, 0, length);
+                }
+
+                var message = new FileTransferMessage
+                {
+                    TransferId = transferId,
+                    FileName = transferName ?? string.Empty,
+                    FileSize = data.Length,
+                    ChunkIndex = i,
+                    TotalChunks = totalChunks,
+                    IsFileData = true,
+                    ChunkData = slice
+                };
+
+                var sent = await SendMessageAsync(targetId, message, channel, EP2PSend.k_EP2PSendReliable);
+                if (!sent)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private int CalculateFileTransferChunkPayloadSize(string transferId, string transferName, int dataLength)
+        {
+            var maxPacketSize = SteamP2PLimits.GetMaxPacketSize(EP2PSend.k_EP2PSendReliable);
+            var chunkSize = maxPacketSize;
+
+            for (int attempt = 0; attempt < 4; attempt++)
+            {
+                var totalChunks = Math.Max(1, (int)Math.Ceiling((double)Math.Max(dataLength, 1) / Math.Max(chunkSize, 1)));
+                var probe = new FileTransferMessage
+                {
+                    SenderId = GetLocalPlayerId(),
+                    TransferId = transferId,
+                    FileName = transferName ?? string.Empty,
+                    FileSize = dataLength,
+                    ChunkIndex = Math.Max(0, totalChunks - 1),
+                    TotalChunks = totalChunks,
+                    IsFileData = true,
+                    ChunkData = new byte[0]
+                };
+
+                var overhead = MessageSerializer.SerializeMessage(probe).Length;
+                var nextChunkSize = maxPacketSize - overhead;
+                if (nextChunkSize == chunkSize)
+                {
+                    break;
+                }
+
+                chunkSize = nextChunkSize;
+            }
+
+            return chunkSize;
         }
 
         private void OnLobbyJoinedAcceptAllPeers(object? sender, LobbyJoinedEventArgs e)
@@ -629,11 +769,6 @@ namespace SteamNetworkLib.Core
             }
         }
 
-        /// <summary>
-        /// Runs the admission policy for a peer and accepts the P2P session if approved.
-        /// Honors <see cref="NetworkRules.AcceptOnlyFriends"/> and fires
-        /// <see cref="OnSessionRequested"/> so consumers can deny the peer.
-        /// </summary>
         private bool TryAdmitPeer(CSteamID peerId)
         {
             var peerName = SteamNetworkUtils.GetPlayerName(peerId);
@@ -648,7 +783,69 @@ namespace SteamNetworkLib.Core
             {
                 return AcceptSession(peerId);
             }
+
             return false;
+        }
+
+        private bool IsInSession()
+        {
+            if (_lobbyManager.IsInLobby)
+            {
+                return true;
+            }
+
+            if (_isInSessionOverride != null)
+            {
+                try
+                {
+                    return _isInSessionOverride();
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        private List<MemberInfo> GetSessionMembers()
+        {
+            if (_lobbyManager.IsInLobby)
+            {
+                return _lobbyManager.GetLobbyMembers();
+            }
+
+            if (_memberProviderOverride != null)
+            {
+                try
+                {
+                    return _memberProviderOverride() ?? new List<MemberInfo>();
+                }
+                catch
+                {
+                    return new List<MemberInfo>();
+                }
+            }
+
+            return new List<MemberInfo>();
+        }
+
+        private CSteamID GetLocalPlayerId()
+        {
+            if (_localPlayerProviderOverride != null)
+            {
+                try
+                {
+                    return _localPlayerProviderOverride();
+                }
+                catch
+                {
+                    // Ignore and fall back.
+                }
+            }
+
+            return _lobbyManager.LocalPlayerID;
         }
 
         private async Task EnsureSessionAsync(CSteamID targetId)
@@ -694,7 +891,7 @@ namespace SteamNetworkLib.Core
             return null;
         }
 
-        private void ProcessReceivedPacket(CSteamID senderId, byte[] data)
+        private void ProcessReceivedPacket(CSteamID senderId, byte[] data, int channel)
         {
             try
             {
@@ -704,19 +901,19 @@ namespace SteamNetworkLib.Core
                 // Use explicit event invocation for IL2CPP reliability
                 try
                 {
-                    OnPacketReceived?.Invoke(this, new P2PPacketReceivedEventArgs(senderId, data, 0, (uint)data.Length));
+                    OnPacketReceived?.Invoke(this, new P2PPacketReceivedEventArgs(senderId, data, channel, (uint)data.Length));
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error invoking OnPacketReceived event: {ex.Message}");
                 }
 #else
-                OnPacketReceived?.Invoke(this, new P2PPacketReceivedEventArgs(senderId, data, 0, (uint)data.Length));
+                OnPacketReceived?.Invoke(this, new P2PPacketReceivedEventArgs(senderId, data, channel, (uint)data.Length));
 #endif
 
                 if (MessageSerializer.IsValidMessage(data))
                 {
-                    ProcessSteamNetworkLibMessage(senderId, data);
+                    ProcessSteamNetworkLibMessage(senderId, data, channel);
                 }
                 else
                 {
@@ -751,7 +948,7 @@ namespace SteamNetworkLib.Core
             }
         }
 
-        private void ProcessSteamNetworkLibMessage(CSteamID senderId, byte[] data)
+        private void ProcessSteamNetworkLibMessage(CSteamID senderId, byte[] data, int channel)
         {
             try
             {
@@ -824,7 +1021,7 @@ namespace SteamNetworkLib.Core
                     {
                         if (OnMessageReceived != null)
                         {
-                            OnMessageReceived.Invoke(this, new P2PMessageReceivedEventArgs(message, senderId, 0));
+                            OnMessageReceived.Invoke(this, new P2PMessageReceivedEventArgs(message, senderId, channel));
                         }
                     }
                     catch (Exception ex)
@@ -832,7 +1029,7 @@ namespace SteamNetworkLib.Core
                         Console.WriteLine($"Error invoking OnMessageReceived event: {ex.Message}");
                     }
 #else
-                    OnMessageReceived?.Invoke(this, new P2PMessageReceivedEventArgs(message, senderId, 0));
+                    OnMessageReceived?.Invoke(this, new P2PMessageReceivedEventArgs(message, senderId, channel));
 #endif
 
                     if (_messageHandlers.TryGetValue(messageType, out var handlers))
@@ -906,7 +1103,6 @@ namespace SteamNetworkLib.Core
             try
             {
                 IsActive = false;
-
                 _lobbyManager.OnLobbyJoined -= OnLobbyJoinedAcceptAllPeers;
                 _lobbyManager.OnMemberJoined -= OnMemberJoinedAcceptPeer;
 

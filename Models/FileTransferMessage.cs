@@ -15,6 +15,12 @@ namespace SteamNetworkLib.Models
         public override string MessageType => "FILE_TRANSFER";
 
         /// <summary>
+        /// Gets or sets the unique identifier for this transfer.
+        /// Use this to distinguish concurrent transfers that share a file name.
+        /// </summary>
+        public string TransferId { get; set; } = string.Empty;
+
+        /// <summary>
         /// Gets or sets the name of the file being transferred.
         /// Should include the file extension for proper identification.
         /// </summary>
@@ -57,7 +63,9 @@ namespace SteamNetworkLib.Models
         /// <returns>A byte array containing the serialized message with header and chunk data.</returns>
         public override byte[] Serialize()
         {
-            var headerJson = $"{{{CreateJsonBase($"\"FileName\":\"{FileName}\",\"FileSize\":{FileSize},\"ChunkIndex\":{ChunkIndex},\"TotalChunks\":{TotalChunks},\"IsFileData\":{IsFileData.ToString().ToLower()}")}}}";
+            var escapedTransferId = EscapeJsonValue(TransferId);
+            var escapedFileName = EscapeJsonValue(FileName);
+            var headerJson = $"{{{CreateJsonBase($"\"TransferId\":\"{escapedTransferId}\",\"FileName\":\"{escapedFileName}\",\"FileSize\":{FileSize},\"ChunkIndex\":{ChunkIndex},\"TotalChunks\":{TotalChunks},\"IsFileData\":{IsFileData.ToString().ToLower()}")}}}";
             var headerBytes = Encoding.UTF8.GetBytes(headerJson);
 
             // Combine header and chunk data
@@ -93,6 +101,7 @@ namespace SteamNetworkLib.Models
             var headerJson = Encoding.UTF8.GetString(data, 4, headerLength);
             ParseJsonBase(headerJson);
 
+            TransferId = ExtractJsonValue(headerJson, "TransferId");
             FileName = ExtractJsonValue(headerJson, "FileName");
 
             if (int.TryParse(ExtractJsonValue(headerJson, "FileSize"), out int fileSize))
@@ -113,6 +122,15 @@ namespace SteamNetworkLib.Models
                 ChunkData = new byte[chunkDataLength];
                 Array.Copy(data, 4 + headerLength, ChunkData, 0, chunkDataLength);
             }
+            else
+            {
+                ChunkData = new byte[0];
+            }
+        }
+
+        private static string EscapeJsonValue(string value)
+        {
+            return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
         }
     }
 }

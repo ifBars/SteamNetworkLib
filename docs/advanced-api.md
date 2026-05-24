@@ -43,7 +43,8 @@ p2p.CloseSession(someId);
 ```
 - Limits
 ```csharp
-int max = p2p.MaxPacketSize; // keep chunks <= max
+int reliableMax = p2p.GetMaxPacketSize(EP2PSend.k_EP2PSendReliable);     // 1 MB
+int unreliableMax = p2p.GetMaxPacketSize(EP2PSend.k_EP2PSendUnreliable); // 1200 bytes
 ```
 
 ## Lobby Manager
@@ -84,4 +85,3 @@ Notes
 - Setting `EnableRelay` applies `SteamNetworking.AllowP2PPacketRelay(...)`.
 - In IL2CPP, polling respects the channel range from `NetworkRules`.
 - High‑level handlers still fire (`client.OnP2PMessageReceived`) when you use `p2p` directly.
-

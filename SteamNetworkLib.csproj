@@ -6,7 +6,7 @@
     <Configurations>Mono;Il2cpp;MonoDebug;Il2cppDebug;Documentation</Configurations>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>1.2.4</Version>
+    <Version>1.3.0</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Mono'">
@@ -896,6 +896,8 @@
     <None Remove="ScheduleOne\**" />
     <None Remove="_site\**" />
     <None Remove="tests\**" />
+    <EmbeddedResource Remove="Examples\**" />
+    <None Remove="Examples\**" />
   </ItemGroup>
 
   <!-- Conditionally include/exclude ScheduleOne example -->
@@ -959,5 +961,15 @@
       <HintPath>$(MelonLoaderIl2CppPath)\Il2Cppcom.rlabrecque.steamworks.net.dll</HintPath>
     </Reference>
   </ItemGroup>
+
+  <Target Name="CopyToUserLibs" AfterTargets="Build" Condition="'$(Configuration)'=='Mono' OR '$(Configuration)'=='MonoDebug' OR '$(Configuration)'=='Il2cpp' OR '$(Configuration)'=='Il2cppDebug'">
+    <PropertyGroup>
+      <SteamNetworkLibDeployGamePath Condition="'$(Configuration)'=='Mono' OR '$(Configuration)'=='MonoDebug'">$(MonoGameInstallPath)</SteamNetworkLibDeployGamePath>
+      <SteamNetworkLibDeployGamePath Condition="'$(Configuration)'=='Il2cpp' OR '$(Configuration)'=='Il2cppDebug'">$(Il2CppGameInstallPath)</SteamNetworkLibDeployGamePath>
+      <SteamNetworkLibUserLibsPath>$(SteamNetworkLibDeployGamePath)\UserLibs</SteamNetworkLibUserLibsPath>
+    </PropertyGroup>
+    <MakeDir Directories="$(SteamNetworkLibUserLibsPath)" Condition="'$(SteamNetworkLibDeployGamePath)' != '' AND Exists('$(SteamNetworkLibDeployGamePath)') AND !Exists('$(SteamNetworkLibUserLibsPath)')" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(SteamNetworkLibUserLibsPath)" SkipUnchangedFiles="true" Condition="Exists('$(SteamNetworkLibUserLibsPath)')" />
+  </Target>
 
 </Project>

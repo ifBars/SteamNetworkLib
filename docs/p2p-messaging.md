@@ -137,13 +137,25 @@ client.RegisterMessageHandler<CustomMessage>((m, sender) => { /* ... */ });
 await client.SendMessageToPlayerAsync(targetId, new CustomMessage { Payload = "Hi" });
 ```
 
-## File transfer (chunked)
+## File transfer and large data
 
-For files, send `FileTransferMessage` in chunks up to `client.P2PManager.MaxPacketSize`.
+Steam P2P packet limits depend on the send type:
+
+- `EP2PSend.k_EP2PSendUnreliable` and `EP2PSend.k_EP2PSendUnreliableNoDelay`: keep the total serialized packet at or below 1200 bytes.
+- `EP2PSend.k_EP2PSendReliable` and `EP2PSend.k_EP2PSendReliableWithBuffering`: Steam supports reliable messages up to 1 MB and handles fragmentation/reassembly internally.
+
+For large data that must arrive intact, prefer reliable chunks. The simplest path is to let SteamNetworkLib calculate safe `FileTransferMessage` chunk sizes:
 
 ```csharp
 var bytes = File.ReadAllBytes(path);
-int chunkSize = client.P2PManager.MaxPacketSize; // use client wrappers for sending
+await client.SendLargeDataToPlayerAsync(targetId, Path.GetFileName(path), bytes, channel: 1);
+```
+
+If you need manual control, send `FileTransferMessage` chunks sized for the full serialized packet, not just `ChunkData`. `client.P2PManager.MaxPacketSize` reports Steam's reliable 1 MB limit; headers still count against that limit.
+
+```csharp
+var bytes = File.ReadAllBytes(path);
+int chunkSize = 64 * 1024; // payload bytes; keep serialized packet under the reliable limit
 int total = (int)Math.Ceiling((double)bytes.Length / chunkSize);
 
 for (int i = 0; i < total; i++)
@@ -168,6 +180,7 @@ for (int i = 0; i < total; i++)
 
 - Default channel is 0; you can use multiple channels (e.g., 0 control, 1 files, 2 audio).
 - Use `EP2PSend.k_EP2PSendReliable` for reliability; for streams, prefer the message-recommended send type.
+- In dedicated-server sessions, SteamNetworkLib preserves the logical channel when routing through DedicatedServerMod. Physical reliability follows the active DedicatedServerMod messaging backend.
 
 ### Selecting channels and reliability automatically
 Configure a policy once via `NetworkRules.MessagePolicy` and apply it at runtime:

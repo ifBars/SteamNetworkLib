@@ -57,7 +57,14 @@ await client.SendMessageToPlayerAsync(targetId, evt);
 
 ```csharp
 var bytes = File.ReadAllBytes("screenshot.png");
-int chunk = client.P2PManager.MaxPacketSize;
+await client.SendLargeDataToPlayerAsync(hostId, "screenshot.png", bytes, channel: 1);
+```
+
+For manual chunking, keep each complete serialized packet under the reliable send limit. The payload chunk is smaller than the packet because SteamNetworkLib adds message headers.
+
+```csharp
+var bytes = File.ReadAllBytes("screenshot.png");
+int chunk = 64 * 1024;
 int total = (int)Math.Ceiling((double)bytes.Length / chunk);
 
 for (int i = 0; i < total; i++)
