@@ -99,6 +99,29 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Validate Release Secrets
+        shell: bash
+        env:
+          GAME_ASSEMBLIES_REPO: ${{ secrets.GAME_ASSEMBLIES_REPO }}
+          GAME_ASSEMBLIES_TOKEN: ${{ secrets.GAME_ASSEMBLIES_TOKEN }}
+          IL2CPP_ASSEMBLIES_REPO: ${{ secrets.IL2CPP_ASSEMBLIES_REPO }}
+          IL2CPP_ASSEMBLIES_TOKEN: ${{ secrets.IL2CPP_ASSEMBLIES_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for name in GAME_ASSEMBLIES_REPO GAME_ASSEMBLIES_TOKEN IL2CPP_ASSEMBLIES_REPO IL2CPP_ASSEMBLIES_TOKEN; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::$name is not configured for this repository"
+              missing=1
+            fi
+          done
+
+          if [[ "$missing" -ne 0 ]]; then
+            echo "Configure the same assembly repository secrets used by the working Schedule One release workflows, then rerun this workflow."
+            exit 1
+          fi
+
       - name: Determine Assembly Branch
         id: assembly-branch
         shell: bash
@@ -136,7 +159,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ secrets.GAME_ASSEMBLIES_REPO }}
-          token: ${{ secrets.GAME_ASSEMBLIES_TOKEN || github.token }}
+          token: ${{ secrets.GAME_ASSEMBLIES_TOKEN }}
           ref: ${{ steps.assembly-branch.outputs.mono_branch }}
           path: game-assemblies
           fetch-depth: 1
@@ -145,7 +168,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ secrets.IL2CPP_ASSEMBLIES_REPO }}
-          token: ${{ secrets.IL2CPP_ASSEMBLIES_TOKEN || github.token }}
+          token: ${{ secrets.IL2CPP_ASSEMBLIES_TOKEN }}
           ref: ${{ steps.assembly-branch.outputs.il2cpp_branch }}
           path: il2cpp-assemblies
           fetch-depth: 1
