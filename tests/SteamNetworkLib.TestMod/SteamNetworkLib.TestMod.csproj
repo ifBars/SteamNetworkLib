@@ -121,7 +121,6 @@
       <ModsPath>$(MonoGameInstallPath)\Mods</ModsPath>
     </PropertyGroup>
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(ModsPath)" Condition="Exists('$(ModsPath)')" />
-    <Copy SourceFiles="$(TargetDir)SteamNetworkLib.dll" DestinationFolder="$(ModsPath)" Condition="Exists('$(ModsPath)')" />
   </Target>
 
 </Project>

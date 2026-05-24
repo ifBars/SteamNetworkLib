@@ -24,7 +24,7 @@ Write-Host ""
 
 $ScriptDir = $PSScriptRoot
 $ProjectDir = Split-Path -Parent $ScriptDir
-$SolutionDir = Split-Path -Parent $ProjectDir
+$SolutionDir = $ProjectDir
 
 $Issues = @()
 $Warnings = @()
@@ -40,7 +40,7 @@ if (-not (Test-Path $UserProps)) {
     
     if ($Fix -and (Test-Path $TemplateProps)) {
         Copy-Item $TemplateProps $UserProps
-        Write-Host "      → Created from template. Please edit and set your game path." -ForegroundColor Yellow
+        Write-Host "      -> Created from template. Please edit and set your game path." -ForegroundColor Yellow
     }
 } else {
     $content = Get-Content $UserProps -Raw
@@ -67,7 +67,7 @@ if (Test-Path $UserProps) {
     $content = Get-Content $UserProps -Raw
     if ($content -match '<MonoGameInstallPath>(.*?)</MonoGameInstallPath>') {
         $gamePath = $Matches[1].Trim()
-        $steamworksPath = Join-Path $gamePath "Schedule I_Data" "Managed" "com.rlabrecque.steamworks.net.dll"
+        $steamworksPath = Join-Path (Join-Path (Join-Path $gamePath "Schedule I_Data") "Managed") "com.rlabrecque.steamworks.net.dll"
         
         if (Test-Path $steamworksPath) {
             Write-Host " OK" -ForegroundColor Green
@@ -90,7 +90,7 @@ if (Test-Path $UserProps) {
         $gamePath = $Matches[1].Trim()
         $steamApiPaths = @(
             (Join-Path $gamePath "steam_api64.dll"),
-            (Join-Path $gamePath "Schedule I_Data" "Plugins" "x86_64" "steam_api64.dll")
+            (Join-Path (Join-Path (Join-Path (Join-Path $gamePath "Schedule I_Data") "Plugins") "x86_64") "steam_api64.dll")
         )
         
         $found = $false
@@ -131,8 +131,8 @@ if ($LASTEXITCODE -eq 0) {
 
 # 5. Check project files
 Write-Host "[5/6] Checking project files..." -NoNewline
-$testProject = Join-Path $ScriptDir "SteamNetworkLib.Tests" "SteamNetworkLib.Tests.csproj"
-$workerProject = Join-Path $ScriptDir "SteamNetworkLib.P2PWorker" "SteamNetworkLib.P2PWorker.csproj"
+$testProject = Join-Path (Join-Path $ScriptDir "SteamNetworkLib.Tests") "SteamNetworkLib.Tests.csproj"
+$workerProject = Join-Path (Join-Path $ScriptDir "SteamNetworkLib.P2PWorker") "SteamNetworkLib.P2PWorker.csproj"
 
 if ((Test-Path $testProject) -and (Test-Path $workerProject)) {
     Write-Host " OK" -ForegroundColor Green
@@ -144,8 +144,8 @@ if ((Test-Path $testProject) -and (Test-Path $workerProject)) {
 
 # 6. Check test utilities
 Write-Host "[6/6] Checking test utilities..." -NoNewline
-$goldbergHelper = Join-Path $ScriptDir "SteamNetworkLib.Tests" "TestUtilities" "GoldbergTestHelper.cs"
-$testClientManager = Join-Path $ScriptDir "SteamNetworkLib.Tests" "TestUtilities" "TestClientManager.cs"
+$goldbergHelper = Join-Path (Join-Path (Join-Path $ScriptDir "SteamNetworkLib.Tests") "TestUtilities") "GoldbergTestHelper.cs"
+$testClientManager = Join-Path (Join-Path (Join-Path $ScriptDir "SteamNetworkLib.Tests") "TestUtilities") "TestClientManager.cs"
 
 if ((Test-Path $goldbergHelper) -and (Test-Path $testClientManager)) {
     Write-Host " OK" -ForegroundColor Green
@@ -160,24 +160,24 @@ Write-Host ""
 Write-Host "=================================================" -ForegroundColor Cyan
 
 if ($Issues.Count -eq 0 -and $Warnings.Count -eq 0) {
-    Write-Host "✓ Environment is ready for automated P2P testing!" -ForegroundColor Green
+    Write-Host "OK: Environment is ready for automated P2P testing!" -ForegroundColor Green
     Write-Host ""
     Write-Host "Run tests with:" -ForegroundColor Cyan
     Write-Host "  .\Run-P2PTests.ps1" -ForegroundColor White
     exit 0
 } else {
     if ($Issues.Count -gt 0) {
-        Write-Host "✗ Issues found ($($Issues.Count)):" -ForegroundColor Red
+        Write-Host "ERROR: Issues found ($($Issues.Count)):" -ForegroundColor Red
         foreach ($issue in $Issues) {
-            Write-Host "  • $issue" -ForegroundColor Red
+            Write-Host "  - $issue" -ForegroundColor Red
         }
     }
     
     if ($Warnings.Count -gt 0) {
         Write-Host ""
-        Write-Host "⚠ Warnings ($($Warnings.Count)):" -ForegroundColor Yellow
+        Write-Host "WARN: Warnings ($($Warnings.Count)):" -ForegroundColor Yellow
         foreach ($warning in $Warnings) {
-            Write-Host "  • $warning" -ForegroundColor Yellow
+            Write-Host "  - $warning" -ForegroundColor Yellow
         }
     }
     

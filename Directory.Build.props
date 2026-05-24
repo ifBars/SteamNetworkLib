@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
+  <Import Project="Directory.Build.user.props" Condition="Exists('Directory.Build.user.props')" />
+
   <!-- Common properties for all projects -->
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
@@ -10,7 +12,7 @@
   <!-- Default paths - these should be overridden in Directory.Build.user.props -->
   <PropertyGroup>
     <!-- Mono game installation path (base game) -->
-    <MonoGameInstallPath Condition="'$(MonoGameInstallPath)' == ''">D:\SteamLibrary\steamapps\common\Schedule I_alternate</MonoGameInstallPath>
+    <MonoGameInstallPath Condition="'$(MonoGameInstallPath)' == ''">D:\SteamLibrary\steamapps\common\Schedule I</MonoGameInstallPath>
     
     <!-- Il2Cpp game installation path (MelonLoader version) -->
     <Il2CppGameInstallPath Condition="'$(Il2CppGameInstallPath)' == ''">D:\SteamLibrary\steamapps\common\Schedule I_public</Il2CppGameInstallPath>

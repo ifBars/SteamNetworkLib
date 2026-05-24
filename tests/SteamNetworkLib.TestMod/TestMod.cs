@@ -1,10 +1,12 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using MelonLoader;
-using UnityEngine;
 using SteamNetworkLib;
 using SteamNetworkLib.Models;
+using SteamNetworkLib.Sync;
+using UnityEngine;
 
 #if MONO
 using Steamworks;
@@ -23,10 +25,6 @@ using Il2CppSteamworks;
 
 namespace SteamNetworkLib.TestMod
 {
-    /// <summary>
-    /// Custom transaction message for testing custom P2P message types.
-    /// Uses the built-in JSON serialization helpers from P2PMessage.
-    /// </summary>
     public class TransactionMessage : P2PMessage
     {
         public override string MessageType => "TRANSACTION";
@@ -40,14 +38,7 @@ namespace SteamNetworkLib.TestMod
 
         public override byte[] Serialize()
         {
-            // Escape quotes in string properties to prevent JSON parsing issues
-            var escapedTransactionId = TransactionId.Replace("\"", "\\\"");
-            var escapedFromPlayer = FromPlayer.Replace("\"", "\\\"");
-            var escapedToPlayer = ToPlayer.Replace("\"", "\\\"");
-            var escapedCurrency = Currency.Replace("\"", "\\\"");
-            var escapedDescription = Description.Replace("\"", "\\\"");
-            
-            var json = $"{{{CreateJsonBase($"\"TransactionId\":\"{escapedTransactionId}\",\"FromPlayer\":\"{escapedFromPlayer}\",\"ToPlayer\":\"{escapedToPlayer}\",\"Amount\":{Amount},\"Currency\":\"{escapedCurrency}\",\"Description\":\"{escapedDescription}\"")}}}";
+            var json = $"{{{CreateJsonBase($"\"TransactionId\":\"{Escape(TransactionId)}\",\"FromPlayer\":\"{Escape(FromPlayer)}\",\"ToPlayer\":\"{Escape(ToPlayer)}\",\"Amount\":{Amount},\"Currency\":\"{Escape(Currency)}\",\"Description\":\"{Escape(Description)}\"")}}}";
             return System.Text.Encoding.UTF8.GetBytes(json);
         }
 
@@ -55,599 +46,674 @@ namespace SteamNetworkLib.TestMod
         {
             var json = System.Text.Encoding.UTF8.GetString(data);
             ParseJsonBase(json);
-            
+
             TransactionId = ExtractJsonValue(json, "TransactionId");
             FromPlayer = ExtractJsonValue(json, "FromPlayer");
             ToPlayer = ExtractJsonValue(json, "ToPlayer");
-            
-            if (decimal.TryParse(ExtractJsonValue(json, "Amount"), out decimal amount))
+            if (decimal.TryParse(ExtractJsonValue(json, "Amount"), out var amount))
+            {
                 Amount = amount;
-            
+            }
+
             Currency = ExtractJsonValue(json, "Currency");
             Description = ExtractJsonValue(json, "Description");
+        }
+
+        private static string Escape(string value)
+        {
+            return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
         }
     }
 
     public class TestMod : MelonMod
     {
+        private const string LobbyDataKey = "snl.realgame.lobby.phase";
+        private const string MemberDataKey = "snl.realgame.member.role";
+        private const string HostSyncKey = "snl.realgame.host.round";
+        private const string ClientSyncKey = "snl.realgame.client.ready";
+        private const int LargePayloadSize = 70 * 1024;
+
         private static readonly MelonLogger.Instance Logger = new("SteamNetworkLib.TestMod");
-        
-        private SteamNetworkClient? _client;
-        private bool _isHost;
-        private bool _isClient;
-        private CSteamID _lobbyId;
-        private bool _initialized = false;
-        
-        private static readonly string SharedDir = Path.Combine(
+
+        private static string SharedDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Temp",
             "SteamNetworkLib.TestMod"
         );
-        private static readonly string LobbyFile = Path.Combine(SharedDir, "lobby.txt");
-        private static readonly string ResultsFile = Path.Combine(SharedDir, "results.txt");
-        
-        private int _messagesSent = 0;
-        private int _messagesReceived = 0;
-        private bool _testsPassed = false;
-        
+
+        private static string LobbyFile => Path.Combine(SharedDir, "lobby.txt");
+        private static string ResultsFile => Path.Combine(SharedDir, "results.txt");
+
+        private readonly List<string> _passedPhases = new List<string>();
+        private readonly Dictionary<string, List<FileTransferMessage>> _fileTransfers = new Dictionary<string, List<FileTransferMessage>>();
+
+        private SteamNetworkClient? _client;
+        private bool _isHost;
+        private bool _isClient;
+        private bool _initialized;
+        private bool _testsPassed;
+        private bool _failed;
+        private string _failure = string.Empty;
+        private CSteamID _lobbyId;
+        private int _directMessagesReceived;
+        private int _directMessagesSent;
+        private int _broadcastMessagesReceived;
+        private bool _largeTransferAckReceived;
+
+        private string Role => _isHost ? "HOST" : "CLIENT";
+        private string RoleResultsFile => Path.Combine(SharedDir, _isHost ? "host-results.txt" : "client-results.txt");
+
         public override void OnInitializeMelon()
         {
-            Logger.Msg("===========================================");
-            Logger.Msg("SteamNetworkLib Automated Test Mod");
-            Logger.Msg("===========================================");
-            
-            // Parse command line arguments
-            string[] args = Environment.GetCommandLineArgs();
-            for (int i = 0; i < args.Length; i++)
+            Logger.Msg("SteamNetworkLib real-game coverage test mod starting");
+
+            var args = Environment.GetCommandLineArgs();
+            for (var i = 0; i < args.Length; i++)
             {
                 if (args[i] == "--host")
                 {
                     _isHost = true;
-                    Logger.Msg("Running as HOST");
                 }
                 else if (args[i] == "--join")
                 {
                     _isClient = true;
-                    Logger.Msg("Running as CLIENT");
+                }
+                else if (args[i] == "--snl-test-dir" && i + 1 < args.Length)
+                {
+                    SharedDir = args[++i];
                 }
             }
-            
+
             if (!_isHost && !_isClient)
             {
-                Logger.Error("No --host or --join argument provided!");
+                Logger.Error("No --host or --join argument provided.");
                 return;
             }
-            
-            // Create shared directory
-            if (!Directory.Exists(SharedDir))
+
+            Directory.CreateDirectory(SharedDir);
+            if (File.Exists(RoleResultsFile))
             {
-                Directory.CreateDirectory(SharedDir);
-            }
-            
-            // Clear old results
-            if (File.Exists(ResultsFile))
-            {
-                File.Delete(ResultsFile);
+                File.Delete(RoleResultsFile);
             }
         }
-        
+
         public override void OnUpdate()
         {
+            if (_failed)
+            {
+                return;
+            }
+
             if (!_initialized)
             {
-                // Initialization phase
                 if (!SteamAPI.Init())
                 {
                     return;
                 }
-                
-                var steamId = SteamUser.GetSteamID();
-                Logger.Msg($"Steam initialized - SteamID: {steamId.m_SteamID}");
-                
+
                 _client = new SteamNetworkClient();
                 if (!_client.Initialize())
                 {
-                    Logger.Error("Failed to initialize SteamNetworkClient!");
-                    WriteResults(false, "Failed to initialize SteamNetworkClient");
+                    Fail("initialize", "SteamNetworkClient.Initialize returned false");
                     return;
                 }
-                
-                Logger.Msg("SteamNetworkClient initialized successfully");
-                
-                // Register message handlers
-                Logger.Msg("[DEBUG] Registering message handlers...");
-                _client.RegisterMessageHandler<TextMessage>(OnTextMessageReceived);
-                Logger.Msg("[DEBUG] TextMessage handler registered");
-                _client.RegisterMessageHandler<DataSyncMessage>(OnDataSyncMessageReceived);
-                Logger.Msg("[DEBUG] DataSyncMessage handler registered");
-                _client.RegisterMessageHandler<TransactionMessage>(OnTransactionMessageReceived);
-                Logger.Msg("[DEBUG] TransactionMessage handler registered");
-                
+
+                RegisterHandlers();
                 _initialized = true;
-                
-                if (_isHost)
-                {
-                    MelonCoroutines.Start(RunHostTests());
-                }
-                else if (_isClient)
-                {
-                    MelonCoroutines.Start(RunClientTests());
-                }
+
+                MelonCoroutines.Start(_isHost ? RunHostTests() : RunClientTests());
+                return;
             }
-            else
-            {
-                // Process incoming P2P packets every frame
-                _client?.ProcessIncomingMessages();
-            }
+
+            _client?.ProcessIncomingMessages();
         }
-        
+
+        private void RegisterHandlers()
+        {
+            _client!.RegisterMessageHandler<TextMessage>(OnTextMessageReceived);
+            _client.RegisterMessageHandler<DataSyncMessage>(OnDataSyncMessageReceived);
+            _client.RegisterMessageHandler<TransactionMessage>(OnTransactionMessageReceived);
+            _client.RegisterMessageHandler<FileTransferMessage>(OnFileTransferMessageReceived);
+        }
+
         private IEnumerator RunHostTests()
         {
-            Logger.Msg("========================================");
-            Logger.Msg("HOST: Starting automated tests...");
-            Logger.Msg("========================================");
-            
-            // Test 1: Create lobby
-            Logger.Msg("[Test 1/5] Creating lobby...");
-            var createTask = _client!.CreateLobbyAsync(ELobbyType.k_ELobbyTypePrivate, 4);
-            while (!createTask.IsCompleted)
-            {
-                yield return null;
-            }
-            
-            if (createTask.IsFaulted)
-            {
-                Logger.Error($"[FAIL] Failed to create lobby: {createTask.Exception?.GetBaseException().Message}");
-                WriteResults(false, "Failed to create lobby");
-                Application.Quit();
-                yield break;
-            }
-            
-            var lobbyInfo = createTask.Result;
-            _lobbyId = lobbyInfo.LobbyId;
-            Logger.Msg($"[PASS] Lobby created: {_lobbyId}");
-            
-            // Write lobby ID to shared file
-            File.WriteAllText(LobbyFile, _lobbyId.m_SteamID.ToString());
-            Logger.Msg($"Lobby ID written to: {LobbyFile}");
-            
-            // Test 2: Wait for client to join
-            Logger.Msg("[Test 2/5] Waiting for client to join...");
-            float timeout = 30f;
-            float elapsed = 0f;
-            int memberCount = 1;
-            
-            while (memberCount < 2 && elapsed < timeout)
-            {
-                memberCount = SteamMatchmaking.GetNumLobbyMembers(_lobbyId);
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-            
-            if (memberCount < 2)
-            {
-                Logger.Error("[FAIL] Client failed to join lobby within 30 seconds");
-                WriteResults(false, "Client join timeout");
-                Application.Quit();
-                yield break;
-            }
-            
-            Logger.Msg($"[PASS] Client joined! Lobby now has {memberCount} members");
-            
-            // Get client Steam ID
-            CSteamID clientId = SteamMatchmaking.GetLobbyMemberByIndex(_lobbyId, 1);
-            Logger.Msg($"Client SteamID: {clientId}");
-            
-            // Wait a bit for client to fully initialize
-            Logger.Msg("[DEBUG] Waiting 5 seconds for client to initialize P2P...");
+            yield return CreateLobby();
+            if (_failed) yield break;
+
+            yield return WaitForClientJoin();
+            if (_failed) yield break;
+
+            var clientId = SteamMatchmaking.GetLobbyMemberByIndex(_lobbyId, 1);
             yield return new WaitForSeconds(5f);
-            
-            // Test 3: Send TextMessage to client
-            Logger.Msg("[Test 3/5] Sending TextMessage to client...");
-            Logger.Msg($"[DEBUG] Creating TextMessage with SenderId: {SteamUser.GetSteamID().m_SteamID}");
-            var textMsg = new TextMessage
-            {
-                Content = "Hello from Host!",
-                SenderId = (CSteamID)SteamUser.GetSteamID().m_SteamID
-            };
-            
-            Logger.Msg($"[DEBUG] TextMessage created - Content: '{textMsg.Content}', SenderId: {textMsg.SenderId.m_SteamID}");
-            
-            Exception? sendException = null;
-            Logger.Msg($"[DEBUG] Calling SendMessageToPlayerAsync to client {clientId}...");
-            var sendTask3 = _client.SendMessageToPlayerAsync(clientId, textMsg);
-            while (!sendTask3.IsCompleted)
-            {
-                yield return null;
-            }
-            
-            if (sendTask3.IsFaulted)
-            {
-                sendException = sendTask3.Exception?.GetBaseException();
-                Logger.Error($"[DEBUG] SendMessageToPlayerAsync failed: {sendException?.Message}");
-                Logger.Error($"[DEBUG] Exception type: {sendException?.GetType().Name}");
-                if (sendException?.InnerException != null)
-                {
-                    Logger.Error($"[DEBUG] Inner exception: {sendException.InnerException.Message}");
-                }
-            }
-            
-            if (sendException != null)
-            {
-                Logger.Error($"[FAIL] Failed to send TextMessage: {sendException.Message}");
-                WriteResults(false, $"Failed to send TextMessage: {sendException.Message}");
-                Application.Quit();
-                yield break;
-            }
-            
-            _messagesSent++;
-            Logger.Msg("[PASS] TextMessage sent successfully");
-            
-            // Test 4: Send DataSyncMessage to client
-            Logger.Msg("[Test 4/6] Sending DataSyncMessage to client...");
-            var dataMsg = new DataSyncMessage
-            {
-                Key = "test_key",
-                Value = "test_value",
-                DataType = "string",
-                SenderId = (CSteamID)SteamUser.GetSteamID().m_SteamID
-            };
-            
-            sendException = null;
-            var sendTask4 = _client.SendMessageToPlayerAsync(clientId, dataMsg);
-            while (!sendTask4.IsCompleted)
-            {
-                yield return null;
-            }
-            
-            if (sendTask4.IsFaulted)
-            {
-                sendException = sendTask4.Exception?.GetBaseException();
-            }
-            
-            if (sendException != null)
-            {
-                Logger.Error($"[FAIL] Failed to send DataSyncMessage: {sendException.Message}");
-                WriteResults(false, $"Failed to send DataSyncMessage: {sendException.Message}");
-                Application.Quit();
-                yield break;
-            }
-            
-            _messagesSent++;
-            Logger.Msg("[PASS] DataSyncMessage sent successfully");
-            
-            // Test 5: Send custom TransactionMessage to client
-            Logger.Msg("[Test 5/6] Sending custom TransactionMessage to client...");
-            var txnMsg = new TransactionMessage
-            {
-                TransactionId = $"txn_host_{DateTime.UtcNow.Ticks}",
-                FromPlayer = "HostPlayer",
-                ToPlayer = "ClientPlayer",
-                Amount = 99.99m,
-                Currency = "USD",
-                Description = "Test transaction from host"
-            };
-            
-            sendException = null;
-            var sendTask5 = _client.SendMessageToPlayerAsync(clientId, txnMsg);
-            while (!sendTask5.IsCompleted)
-            {
-                yield return null;
-            }
-            
-            if (sendTask5.IsFaulted)
-            {
-                sendException = sendTask5.Exception?.GetBaseException();
-            }
-            
-            if (sendException != null)
-            {
-                Logger.Error($"[FAIL] Failed to send TransactionMessage: {sendException.Message}");
-                WriteResults(false, $"Failed to send TransactionMessage: {sendException.Message}");
-                Application.Quit();
-                yield break;
-            }
-            
-            _messagesSent++;
-            Logger.Msg($"[PASS] TransactionMessage sent successfully: {txnMsg.TransactionId}");
-            
-            // Test 6: Wait for client responses
-            Logger.Msg("[Test 6/6] Waiting for client responses...");
-            timeout = 15f;
-            elapsed = 0f;
-            
-            while (_messagesReceived < 3 && elapsed < timeout)
-            {
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-            
-            if (_messagesReceived < 3)
-            {
-                Logger.Error($"[FAIL] Only received {_messagesReceived}/3 expected messages from client");
-                WriteResults(false, $"Only received {_messagesReceived}/3 messages");
-                Application.Quit();
-                yield break;
-            }
-            
-            Logger.Msg($"[PASS] Received all {_messagesReceived} messages from client");
-            
-            // All tests passed!
-            Logger.Msg("========================================");
-            Logger.Msg("ALL TESTS PASSED!");
-            Logger.Msg($"Messages Sent: {_messagesSent}");
-            Logger.Msg($"Messages Received: {_messagesReceived}");
-            Logger.Msg("========================================");
-            
-            _testsPassed = true;
-            WriteResults(true, "All tests passed");
-            
+
+            yield return RunHostLobbyAndMemberData(clientId);
+            if (_failed) yield break;
+
+            yield return RunHostDirectP2P(clientId);
+            if (_failed) yield break;
+
+            yield return RunHostBroadcast();
+            if (_failed) yield break;
+
+            yield return RunHostSyncVars(clientId);
+            if (_failed) yield break;
+
+            yield return RunHostLargeTransfer(clientId);
+            if (_failed) yield break;
+
+            yield return RunPacketLimitChecks(clientId);
+            if (_failed) yield break;
+
+            PassAll("All real-game host phases passed");
             yield return new WaitForSeconds(2f);
             Application.Quit();
         }
-        
+
         private IEnumerator RunClientTests()
         {
-            Logger.Msg("========================================");
-            Logger.Msg("CLIENT: Starting automated tests...");
-            Logger.Msg("========================================");
-            
-            // Test 1: Wait for lobby file
-            Logger.Msg("[Test 1/4] Waiting for lobby file...");
-            float timeout = 30f;
-            float elapsed = 0f;
-            
-            while (!File.Exists(LobbyFile) && elapsed < timeout)
-            {
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-            
-            if (!File.Exists(LobbyFile))
-            {
-                Logger.Error("[FAIL] Lobby file not found within 30 seconds");
-                WriteResults(false, "Lobby file timeout");
-                Application.Quit();
-                yield break;
-            }
-            
-            string lobbyIdStr = File.ReadAllText(LobbyFile);
-            if (!ulong.TryParse(lobbyIdStr, out ulong lobbyId))
-            {
-                Logger.Error($"[FAIL] Invalid lobby ID in file: {lobbyIdStr}");
-                WriteResults(false, "Invalid lobby ID");
-                Application.Quit();
-                yield break;
-            }
-            
-            _lobbyId = new CSteamID(lobbyId);
-            Logger.Msg($"[PASS] Found lobby ID: {_lobbyId}");
-            
-            // Test 2: Join lobby
-            Logger.Msg("[Test 2/4] Joining lobby...");
-            var joinTask = _client!.JoinLobbyAsync(_lobbyId);
-            while (!joinTask.IsCompleted)
-            {
-                yield return null;
-            }
-            
-            if (joinTask.IsFaulted)
-            {
-                Logger.Error($"[FAIL] Failed to join lobby: {joinTask.Exception?.GetBaseException().Message}");
-                WriteResults(false, "Failed to join lobby");
-                Application.Quit();
-                yield break;
-            }
-            
-            Logger.Msg("[PASS] Joined lobby successfully");
-            
-            // Get host Steam ID
-            CSteamID hostId = SteamMatchmaking.GetLobbyOwner(_lobbyId);
-            Logger.Msg($"Host SteamID: {hostId}");
-            
-            // Wait a bit for host to be ready
+            yield return JoinLobbyFromFile();
+            if (_failed) yield break;
+
+            var hostId = SteamMatchmaking.GetLobbyOwner(_lobbyId);
             yield return new WaitForSeconds(2f);
-            
-            // Test 3: Wait for messages from host
-            Logger.Msg("[Test 3/6] Waiting for messages from host...");
-            Logger.Msg("[DEBUG] Client message handlers should be active. Waiting for P2P messages...");
-            timeout = 30f;  // Increased timeout for debugging
-            elapsed = 0f;
-            float lastLogTime = 0f;
-            
-            while (_messagesReceived < 3 && elapsed < timeout)
-            {
-                elapsed += Time.deltaTime;
-                
-                // Log every 5 seconds to show we're still waiting
-                if (elapsed - lastLogTime >= 5f)
-                {
-                    Logger.Msg($"[DEBUG] Still waiting... Elapsed: {elapsed:F1}s, Messages received: {_messagesReceived}/3");
-                    lastLogTime = elapsed;
-                }
-                
-                yield return null;
-            }
-            
-            if (_messagesReceived < 3)
-            {
-                Logger.Error($"[FAIL] Only received {_messagesReceived}/3 expected messages from host");
-                Logger.Error("[DEBUG] Timeout reached. Message handlers may not be receiving P2P packets.");
-                WriteResults(false, $"Only received {_messagesReceived}/3 messages");
-                Application.Quit();
-                yield break;
-            }
-            
-            Logger.Msg($"[PASS] Received all {_messagesReceived} messages from host");
-            
-            // Test 4: Send responses back to host
-            Logger.Msg("[Test 4/6] Sending responses to host...");
-            
-            var textMsg = new TextMessage
-            {
-                Content = "Hello from Client!",
-                SenderId = (CSteamID)SteamUser.GetSteamID().m_SteamID
-            };
-            
-            Exception? sendException = null;
-            var sendTask4 = _client.SendMessageToPlayerAsync(hostId, textMsg);
-            while (!sendTask4.IsCompleted)
-            {
-                yield return null;
-            }
-            
-            if (sendTask4.IsFaulted)
-            {
-                sendException = sendTask4.Exception?.GetBaseException();
-            }
-            
-            if (sendException != null)
-            {
-                Logger.Error($"[FAIL] Failed to send TextMessage: {sendException.Message}");
-                WriteResults(false, $"Failed to send TextMessage: {sendException.Message}");
-                Application.Quit();
-                yield break;
-            }
-            
-            _messagesSent++;
-            Logger.Msg("[PASS] TextMessage sent to host");
-            
-            var dataMsg = new DataSyncMessage
-            {
-                Key = "client_key",
-                Value = "client_value",
-                DataType = "string",
-                SenderId = (CSteamID)SteamUser.GetSteamID().m_SteamID
-            };
-            
-            sendException = null;
-            var sendTask5 = _client.SendMessageToPlayerAsync(hostId, dataMsg);
-            while (!sendTask5.IsCompleted)
-            {
-                yield return null;
-            }
-            
-            if (sendTask5.IsFaulted)
-            {
-                sendException = sendTask5.Exception?.GetBaseException();
-            }
-            
-            if (sendException != null)
-            {
-                Logger.Error($"[FAIL] Failed to send DataSyncMessage: {sendException.Message}");
-                WriteResults(false, $"Failed to send DataSyncMessage: {sendException.Message}");
-                Application.Quit();
-                yield break;
-            }
-            
-            _messagesSent++;
-            Logger.Msg("[PASS] DataSyncMessage sent to host");
-            
-            // Test 5: Send custom TransactionMessage to host
-            Logger.Msg("[Test 5/6] Sending custom TransactionMessage to host...");
-            var txnMsg = new TransactionMessage
-            {
-                TransactionId = $"txn_client_{DateTime.UtcNow.Ticks}",
-                FromPlayer = "ClientPlayer",
-                ToPlayer = "HostPlayer",
-                Amount = 42.50m,
-                Currency = "EUR",
-                Description = "Test transaction from client"
-            };
-            
-            sendException = null;
-            var sendTask6 = _client.SendMessageToPlayerAsync(hostId, txnMsg);
-            while (!sendTask6.IsCompleted)
-            {
-                yield return null;
-            }
-            
-            if (sendTask6.IsFaulted)
-            {
-                sendException = sendTask6.Exception?.GetBaseException();
-            }
-            
-            if (sendException != null)
-            {
-                Logger.Error($"[FAIL] Failed to send TransactionMessage: {sendException.Message}");
-                WriteResults(false, $"Failed to send TransactionMessage: {sendException.Message}");
-                Application.Quit();
-                yield break;
-            }
-            
-            _messagesSent++;
-            Logger.Msg($"[PASS] TransactionMessage sent to host: {txnMsg.TransactionId}");
-            
-            // Test 6: Wait for host acknowledgment
-            Logger.Msg("[Test 6/6] Waiting for final acknowledgment...");
-            yield return new WaitForSeconds(2f);
-            
-            // All tests passed!
-            Logger.Msg("========================================");
-            Logger.Msg("ALL CLIENT TESTS PASSED!");
-            Logger.Msg($"Messages Sent: {_messagesSent}");
-            Logger.Msg($"Messages Received: {_messagesReceived}");
-            Logger.Msg("========================================");
-            
-            _testsPassed = true;
-            WriteResults(true, "All client tests passed");
-            
+
+            yield return RunClientLobbyAndMemberData(hostId);
+            if (_failed) yield break;
+
+            yield return RunClientDirectP2P(hostId);
+            if (_failed) yield break;
+
+            yield return RunClientBroadcast();
+            if (_failed) yield break;
+
+            yield return RunClientSyncVars(hostId);
+            if (_failed) yield break;
+
+            yield return RunClientLargeTransferAck(hostId);
+            if (_failed) yield break;
+
+            yield return RunPacketLimitChecks(hostId);
+            if (_failed) yield break;
+
+            PassAll("All real-game client phases passed");
             yield return new WaitForSeconds(2f);
             Application.Quit();
         }
-        
+
+        private IEnumerator CreateLobby()
+        {
+            const string phase = "lobby.create";
+            var task = _client!.CreateLobbyAsync(ELobbyType.k_ELobbyTypePrivate, 4);
+            while (!task.IsCompleted) yield return null;
+
+            if (task.IsFaulted)
+            {
+                Fail(phase, task.Exception?.GetBaseException().Message ?? "CreateLobbyAsync failed");
+                yield break;
+            }
+
+            _lobbyId = task.Result.LobbyId;
+            File.WriteAllText(LobbyFile, _lobbyId.m_SteamID.ToString());
+            MarkPassed(phase);
+        }
+
+        private IEnumerator WaitForClientJoin()
+        {
+            const string phase = "lobby.member-join";
+            yield return WaitFor(() => SteamMatchmaking.GetNumLobbyMembers(_lobbyId) >= 2, 30f, phase, "Client did not join lobby");
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator JoinLobbyFromFile()
+        {
+            const string phase = "lobby.join";
+            yield return WaitFor(() => File.Exists(LobbyFile), 30f, phase, "Lobby file was not written");
+            if (_failed) yield break;
+
+            if (!ulong.TryParse(File.ReadAllText(LobbyFile), out var lobbyId))
+            {
+                Fail(phase, "Lobby file did not contain a valid Steam lobby id");
+                yield break;
+            }
+
+            _lobbyId = new CSteamID(lobbyId);
+            var task = _client!.JoinLobbyAsync(_lobbyId);
+            while (!task.IsCompleted) yield return null;
+
+            if (task.IsFaulted)
+            {
+                Fail(phase, task.Exception?.GetBaseException().Message ?? "JoinLobbyAsync failed");
+                yield break;
+            }
+
+            MarkPassed(phase);
+        }
+
+        private IEnumerator RunHostLobbyAndMemberData(CSteamID clientId)
+        {
+            const string phase = "data.lobby-member";
+            _client!.SetLobbyData(LobbyDataKey, "host-ready");
+            _client.SetMyData(MemberDataKey, "host");
+
+            yield return WaitFor(
+                () => _client.GetLobbyData(LobbyDataKey) == "host-ready" &&
+                      _client.GetMyData(MemberDataKey) == "host" &&
+                      _client.GetPlayerData(clientId, MemberDataKey) == "client",
+                30f,
+                phase,
+                "Host did not observe expected lobby/member data");
+
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunClientLobbyAndMemberData(CSteamID hostId)
+        {
+            const string phase = "data.lobby-member";
+            _client!.SetMyData(MemberDataKey, "client");
+
+            yield return WaitFor(
+                () => _client.GetLobbyData(LobbyDataKey) == "host-ready" &&
+                      _client.GetMyData(MemberDataKey) == "client" &&
+                      _client.GetPlayerData(hostId, MemberDataKey) == "host",
+                30f,
+                phase,
+                "Client did not observe expected lobby/member data");
+
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunHostDirectP2P(CSteamID clientId)
+        {
+            const string phase = "p2p.direct";
+            yield return SendStandardMessages(clientId, "host", "client");
+            if (_failed) yield break;
+
+            yield return WaitFor(() => _directMessagesReceived >= 3, 30f, phase, "Host did not receive all client direct messages");
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunClientDirectP2P(CSteamID hostId)
+        {
+            const string phase = "p2p.direct";
+            yield return WaitFor(() => _directMessagesReceived >= 3, 30f, phase, "Client did not receive all host direct messages");
+            if (_failed) yield break;
+
+            yield return SendStandardMessages(hostId, "client", "host");
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator SendStandardMessages(CSteamID targetId, string from, string to)
+        {
+            var textTask = _client!.SendMessageToPlayerAsync(targetId, new TextMessage
+            {
+                Content = $"direct:{from}:text",
+                SenderId = SteamUser.GetSteamID()
+            });
+            yield return WaitForSend(textTask, "p2p.direct", "TextMessage");
+            if (_failed) yield break;
+            _directMessagesSent++;
+
+            var dataTask = _client.SendMessageToPlayerAsync(targetId, new DataSyncMessage
+            {
+                Key = $"direct:{from}:data",
+                Value = "ok",
+                DataType = "string",
+                SenderId = SteamUser.GetSteamID()
+            });
+            yield return WaitForSend(dataTask, "p2p.direct", "DataSyncMessage");
+            if (_failed) yield break;
+            _directMessagesSent++;
+
+            var transactionTask = _client.SendMessageToPlayerAsync(targetId, new TransactionMessage
+            {
+                TransactionId = $"direct-{from}-{DateTime.UtcNow.Ticks}",
+                FromPlayer = from,
+                ToPlayer = to,
+                Amount = from == "host" ? 99.99m : 42.50m,
+                Currency = "USD",
+                Description = $"direct:{from}:transaction"
+            });
+            yield return WaitForSend(transactionTask, "p2p.direct", "TransactionMessage");
+            if (!_failed) _directMessagesSent++;
+        }
+
+        private IEnumerator RunHostBroadcast()
+        {
+            const string phase = "p2p.broadcast";
+            var task = _client!.BroadcastMessageAsync(new TextMessage
+            {
+                Content = "broadcast:host",
+                SenderId = SteamUser.GetSteamID()
+            });
+            while (!task.IsCompleted) yield return null;
+
+            if (task.IsFaulted)
+            {
+                Fail(phase, task.Exception?.GetBaseException().Message ?? "BroadcastMessageAsync failed");
+                yield break;
+            }
+
+            MarkPassed(phase);
+        }
+
+        private IEnumerator RunClientBroadcast()
+        {
+            const string phase = "p2p.broadcast";
+            yield return WaitFor(() => _broadcastMessagesReceived >= 1, 30f, phase, "Client did not receive host broadcast");
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunHostSyncVars(CSteamID clientId)
+        {
+            const string phase = "syncvars";
+            var hostRound = _client!.CreateHostSyncVar(HostSyncKey, 0);
+            var readiness = _client.CreateClientSyncVar(ClientSyncKey, "none");
+
+            hostRound.Value = 7;
+            readiness.Value = "host-ready";
+
+            yield return WaitFor(
+                () => hostRound.Value == 7 && readiness.GetValue(clientId) == "client-ready",
+                30f,
+                phase,
+                "Host SyncVar values did not converge");
+
+            hostRound.Dispose();
+            readiness.Dispose();
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunClientSyncVars(CSteamID hostId)
+        {
+            const string phase = "syncvars";
+            var hostRound = _client!.CreateHostSyncVar(HostSyncKey, 0);
+            var readiness = _client.CreateClientSyncVar(ClientSyncKey, "none");
+
+            readiness.Value = "client-ready";
+
+            yield return WaitFor(
+                () => hostRound.Value == 7 && readiness.GetValue(hostId) == "host-ready",
+                30f,
+                phase,
+                "Client SyncVar values did not converge");
+
+            hostRound.Dispose();
+            readiness.Dispose();
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunHostLargeTransfer(CSteamID clientId)
+        {
+            const string phase = "p2p.large-transfer";
+            var payload = CreatePayload(LargePayloadSize);
+            var checksum = Checksum(payload);
+            var transferName = $"realgame-large|{payload.Length}|{checksum}";
+
+            var task = _client!.SendLargeDataToPlayerAsync(clientId, transferName, payload, 0, 4096);
+            yield return WaitForSend(task, phase, "SendLargeDataToPlayerAsync");
+            if (_failed) yield break;
+
+            yield return WaitFor(() => _largeTransferAckReceived, 30f, phase, "Host did not receive large transfer acknowledgment");
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunClientLargeTransferAck(CSteamID hostId)
+        {
+            const string phase = "p2p.large-transfer";
+            yield return WaitFor(() => HasValidLargeTransfer(), 30f, phase, "Client did not receive a valid large transfer");
+            if (_failed) yield break;
+
+            var ackTask = _client!.SendMessageToPlayerAsync(hostId, new TextMessage
+            {
+                Content = "large-transfer:ok",
+                SenderId = SteamUser.GetSteamID()
+            });
+            yield return WaitForSend(ackTask, phase, "large transfer acknowledgment");
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunPacketLimitChecks(CSteamID targetId)
+        {
+            const string phase = "p2p.packet-limits";
+            if (_client!.P2PManager == null)
+            {
+                Fail(phase, "P2PManager was null");
+                yield break;
+            }
+
+            if (_client.P2PManager.GetMaxPacketSize(EP2PSend.k_EP2PSendUnreliable) != 1200 ||
+                _client.P2PManager.GetMaxPacketSize(EP2PSend.k_EP2PSendReliable) != 1024 * 1024)
+            {
+                Fail(phase, "Unexpected Steam P2P packet limits");
+                yield break;
+            }
+
+            var oversized = new byte[1201];
+            var task = _client.P2PManager.SendPacketAsync(targetId, oversized, 0, EP2PSend.k_EP2PSendUnreliable);
+            while (!task.IsCompleted) yield return null;
+
+            if (!task.IsFaulted)
+            {
+                Fail(phase, "Oversized unreliable packet did not fault");
+                yield break;
+            }
+
+            MarkPassed(phase);
+        }
+
+        private IEnumerator WaitForSend(System.Threading.Tasks.Task<bool> task, string phase, string operation)
+        {
+            while (!task.IsCompleted) yield return null;
+
+            if (task.IsFaulted)
+            {
+                Fail(phase, $"{operation} failed: {task.Exception?.GetBaseException().Message}");
+            }
+            else if (!task.Result)
+            {
+                Fail(phase, $"{operation} returned false");
+            }
+        }
+
+        private IEnumerator WaitFor(Func<bool> condition, float timeoutSeconds, string phase, string failure)
+        {
+            var elapsed = 0f;
+            while (!_failed && elapsed < timeoutSeconds)
+            {
+                if (condition())
+                {
+                    yield break;
+                }
+
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            Fail(phase, failure);
+        }
+
         private void OnTextMessageReceived(TextMessage message, CSteamID sender)
         {
-            _messagesReceived++;
-            Logger.Msg($"[MESSAGE RECEIVED] TextMessage from {sender.m_SteamID}: '{message.Content}'");
-            Logger.Msg($"[MESSAGE DETAILS] SenderId: {message.SenderId.m_SteamID}, Timestamp: {message.Timestamp}");
+            if (message.Content.StartsWith("direct:", StringComparison.Ordinal))
+            {
+                _directMessagesReceived++;
+            }
+            else if (message.Content == "broadcast:host")
+            {
+                _broadcastMessagesReceived++;
+            }
+            else if (message.Content == "large-transfer:ok")
+            {
+                _largeTransferAckReceived = true;
+            }
+
+            Logger.Msg($"TextMessage from {sender.m_SteamID}: {message.Content}");
         }
 
         private void OnDataSyncMessageReceived(DataSyncMessage message, CSteamID sender)
         {
-            _messagesReceived++;
-            Logger.Msg($"[MESSAGE RECEIVED] DataSyncMessage from {sender.m_SteamID}: Key='{message.Key}', Value='{message.Value}'");
-            Logger.Msg($"[MESSAGE DETAILS] DataType: {message.DataType}, SenderId: {message.SenderId.m_SteamID}");
+            if (message.Key.StartsWith("direct:", StringComparison.Ordinal))
+            {
+                _directMessagesReceived++;
+            }
+
+            Logger.Msg($"DataSyncMessage from {sender.m_SteamID}: {message.Key}={message.Value}");
         }
 
         private void OnTransactionMessageReceived(TransactionMessage message, CSteamID sender)
         {
-            _messagesReceived++;
-            Logger.Msg($"[MESSAGE RECEIVED] TransactionMessage from {sender.m_SteamID}:");
-            Logger.Msg($"[MESSAGE DETAILS] TransactionId: {message.TransactionId}");
-            Logger.Msg($"[MESSAGE DETAILS] From: {message.FromPlayer} -> To: {message.ToPlayer}");
-            Logger.Msg($"[MESSAGE DETAILS] Amount: {message.Amount} {message.Currency}");
-            Logger.Msg($"[MESSAGE DETAILS] Description: {message.Description}");
-            Logger.Msg($"[MESSAGE DETAILS] SenderId: {message.SenderId.m_SteamID}, Timestamp: {message.Timestamp}");
+            if (message.Description.StartsWith("direct:", StringComparison.Ordinal))
+            {
+                _directMessagesReceived++;
+            }
+
+            Logger.Msg($"TransactionMessage from {sender.m_SteamID}: {message.TransactionId}");
         }
-        
+
+        private void OnFileTransferMessageReceived(FileTransferMessage message, CSteamID sender)
+        {
+            var key = string.IsNullOrEmpty(message.TransferId) ? message.FileName : message.TransferId;
+            if (!_fileTransfers.TryGetValue(key, out var chunks))
+            {
+                chunks = new List<FileTransferMessage>();
+                _fileTransfers[key] = chunks;
+            }
+
+            chunks.Add(message);
+            Logger.Msg($"FileTransferMessage from {sender.m_SteamID}: {message.FileName} chunk {message.ChunkIndex + 1}/{message.TotalChunks}");
+        }
+
+        private bool HasValidLargeTransfer()
+        {
+            foreach (var chunks in _fileTransfers.Values)
+            {
+                if (chunks.Count == 0)
+                {
+                    continue;
+                }
+
+                var first = chunks[0];
+                if (!first.FileName.StartsWith("realgame-large|", StringComparison.Ordinal) ||
+                    chunks.Count < first.TotalChunks)
+                {
+                    continue;
+                }
+
+                chunks.Sort((left, right) => left.ChunkIndex.CompareTo(right.ChunkIndex));
+                var data = new byte[first.FileSize];
+                var offset = 0;
+                for (var i = 0; i < chunks.Count; i++)
+                {
+                    if (chunks[i].ChunkIndex != i)
+                    {
+                        return false;
+                    }
+
+                    Array.Copy(chunks[i].ChunkData, 0, data, offset, chunks[i].ChunkData.Length);
+                    offset += chunks[i].ChunkData.Length;
+                }
+
+                if (offset != first.FileSize)
+                {
+                    return false;
+                }
+
+                var parts = first.FileName.Split('|');
+                if (parts.Length < 3 ||
+                    !int.TryParse(parts[1], out var expectedLength) ||
+                    !int.TryParse(parts[2], out var expectedChecksum))
+                {
+                    return false;
+                }
+
+                return expectedLength == data.Length && expectedChecksum == Checksum(data);
+            }
+
+            return false;
+        }
+
+        private static byte[] CreatePayload(int size)
+        {
+            var data = new byte[size];
+            for (var i = 0; i < data.Length; i++)
+            {
+                data[i] = (byte)(i % 251);
+            }
+
+            return data;
+        }
+
+        private static int Checksum(byte[] data)
+        {
+            unchecked
+            {
+                var sum = 17;
+                for (var i = 0; i < data.Length; i++)
+                {
+                    sum = (sum * 31) + data[i];
+                }
+
+                return sum;
+            }
+        }
+
+        private void MarkPassed(string phase)
+        {
+            if (!_passedPhases.Contains(phase))
+            {
+                _passedPhases.Add(phase);
+                Logger.Msg($"[PASS] {phase}");
+            }
+        }
+
+        private void Fail(string phase, string details)
+        {
+            if (_failed)
+            {
+                return;
+            }
+
+            _failed = true;
+            _failure = $"{phase}: {details}";
+            Logger.Error($"[FAIL] {_failure}");
+            WriteResults(false, _failure);
+            Application.Quit();
+        }
+
+        private void PassAll(string details)
+        {
+            _testsPassed = true;
+            WriteResults(true, $"{details}; Phases:{string.Join(",", _passedPhases.ToArray())}");
+        }
+
         private void WriteResults(bool passed, string details)
         {
             try
             {
-                var role = _isHost ? "HOST" : "CLIENT";
-                var result = $"{role}|{(passed ? "PASS" : "FAIL")}|{details}|Sent:{_messagesSent}|Received:{_messagesReceived}";
+                var result = $"{Role}|{(passed ? "PASS" : "FAIL")}|{details}|DirectSent:{_directMessagesSent}|DirectReceived:{_directMessagesReceived}|BroadcastReceived:{_broadcastMessagesReceived}|Phases:{string.Join(",", _passedPhases.ToArray())}";
+                File.WriteAllText(RoleResultsFile, result);
                 File.WriteAllText(ResultsFile, result);
-                Logger.Msg($"Results written to: {ResultsFile}");
+                Logger.Msg($"Results written to: {RoleResultsFile}");
             }
             catch (Exception ex)
             {
                 Logger.Error($"Failed to write results: {ex.Message}");
             }
         }
-        
+
         public override void OnApplicationQuit()
         {
-            if (!_testsPassed && _initialized)
+            if (!_testsPassed && _initialized && !_failed)
             {
-                WriteResults(false, "Application quit before tests completed");
+                WriteResults(false, string.IsNullOrEmpty(_failure) ? "Application quit before tests completed" : _failure);
             }
-            
+
             if (_lobbyId.IsValid())
             {
                 SteamMatchmaking.LeaveLobby(_lobbyId);
             }
-            
+
             _client?.Dispose();
             SteamAPI.Shutdown();
         }

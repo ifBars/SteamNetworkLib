@@ -41,6 +41,17 @@ if (-not (Test-Path $modsPath)) {
     exit 1
 }
 
+$userLibsPath = Join-Path $GamePath "UserLibs"
+if (-not (Test-Path $userLibsPath)) {
+    New-Item -ItemType Directory -Path $userLibsPath -Force | Out-Null
+}
+
+$goldbergDll = Join-Path $GamePath "Schedule I_Data\Plugins\x86_64\steam_api64.dll"
+if (-not (Test-Path $goldbergDll)) {
+    Write-Error "Goldberg steam_api64.dll not found at: $goldbergDll"
+    exit 1
+}
+
 # Shared results directory
 $sharedDir = Join-Path $env:LOCALAPPDATA "Temp\SteamNetworkLib.TestMod"
 $resultsFile = Join-Path $sharedDir "results.txt"
@@ -74,8 +85,8 @@ catch {
 
 # Copy mod DLLs to game
 Write-Host "Step 2: Deploying Test Mod..." -ForegroundColor Yellow
-$testModDll = Join-Path $PSScriptRoot "SteamNetworkLib.TestMod\bin\Mono\net6.0\SteamNetworkLib.TestMod.dll"
-$steamNetLibDll = Join-Path $PSScriptRoot "SteamNetworkLib.TestMod\bin\Mono\net6.0\SteamNetworkLib.dll"
+$testModDll = Join-Path $PSScriptRoot "SteamNetworkLib.TestMod\bin\Mono\netstandard2.1\SteamNetworkLib.TestMod.dll"
+$steamNetLibDll = Join-Path $PSScriptRoot "SteamNetworkLib.TestMod\bin\Mono\netstandard2.1\SteamNetworkLib.dll"
 
 if (-not (Test-Path $testModDll)) {
     Write-Error "Test mod DLL not found at: $testModDll"
@@ -83,8 +94,9 @@ if (-not (Test-Path $testModDll)) {
 }
 
 Copy-Item -Path $testModDll -Destination $modsPath -Force
-Copy-Item -Path $steamNetLibDll -Destination $modsPath -Force
-Write-Host "[OK] Mod deployed to $modsPath" -ForegroundColor Green
+Copy-Item -Path $steamNetLibDll -Destination $userLibsPath -Force
+Write-Host "[OK] Test mod deployed to $modsPath" -ForegroundColor Green
+Write-Host "[OK] SteamNetworkLib deployed to $userLibsPath" -ForegroundColor Green
 
 # Goldberg config function
 function Set-GoldbergConfig {

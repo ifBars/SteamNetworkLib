@@ -46,6 +46,37 @@ dotnet build tests/SteamNetworkLib.Tests/SteamNetworkLib.Tests.csproj
 dotnet test tests/SteamNetworkLib.Tests/SteamNetworkLib.Tests.csproj
 ```
 
+### Real Game Process Tests
+
+The real-game harness launches two isolated Schedule I processes, deploys
+`SteamNetworkLib.TestMod` to `Mods`, deploys `SteamNetworkLib.dll` to `UserLibs`,
+and runs the same public APIs a mod would use in-game.
+
+Configure your local Mono install in `Directory.Build.user.props`:
+
+```xml
+<MonoGameInstallPath>D:\Path\To\Schedule I_alternate</MonoGameInstallPath>
+```
+
+Then run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tests\Run-GameInstanceNetworkTests.ps1
+```
+
+You can also pass paths explicitly when your local layout differs:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tests\Run-GameInstanceNetworkTests.ps1 `
+  -GamePath "D:\Path\To\Schedule I_alternate" `
+  -InstanceRoot "D:\Temp\SteamNetworkLib.GameInstances"
+```
+
+The runner expects Goldberg's `steam_api64.dll` in
+`Schedule I_Data\Plugins\x86_64\steam_api64.dll` for the configured game path.
+Use `-KeepInstances` to preserve the generated host/client folders for log
+inspection after a failure.
+
 ## Test Categories
 
 ### Unit Tests (No Steam Required)
