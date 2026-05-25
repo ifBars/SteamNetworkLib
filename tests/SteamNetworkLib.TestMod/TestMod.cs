@@ -72,6 +72,8 @@ namespace SteamNetworkLib.TestMod
         private const string HostSyncKey = "snl.realgame.host.round";
         private const string ClientSyncKey = "snl.realgame.client.ready";
         private const int LargePayloadSize = 70 * 1024;
+        private const int ModelFilePayloadSize = 6 * 1024;
+        private const int ModelStreamPayloadSize = 2048;
 
         private static readonly MelonLogger.Instance Logger = new("SteamNetworkLib.TestMod");
 
@@ -86,6 +88,8 @@ namespace SteamNetworkLib.TestMod
 
         private readonly List<string> _passedPhases = new List<string>();
         private readonly Dictionary<string, List<FileTransferMessage>> _fileTransfers = new Dictionary<string, List<FileTransferMessage>>();
+        private readonly HashSet<string> _modelMessagesReceived = new HashSet<string>();
+        private readonly HashSet<string> _modelMessageAcksReceived = new HashSet<string>();
 
         private SteamNetworkClient? _client;
         private bool _isHost;
@@ -174,6 +178,9 @@ namespace SteamNetworkLib.TestMod
             _client.RegisterMessageHandler<DataSyncMessage>(OnDataSyncMessageReceived);
             _client.RegisterMessageHandler<TransactionMessage>(OnTransactionMessageReceived);
             _client.RegisterMessageHandler<FileTransferMessage>(OnFileTransferMessageReceived);
+            _client.RegisterMessageHandler<EventMessage>(OnEventMessageReceived);
+            _client.RegisterMessageHandler<HeartbeatMessage>(OnHeartbeatMessageReceived);
+            _client.RegisterMessageHandler<StreamMessage>(OnStreamMessageReceived);
         }
 
         private IEnumerator RunHostTests()
@@ -191,6 +198,9 @@ namespace SteamNetworkLib.TestMod
             if (_failed) yield break;
 
             yield return RunHostDirectP2P(clientId);
+            if (_failed) yield break;
+
+            yield return RunHostModelMessages(clientId);
             if (_failed) yield break;
 
             yield return RunHostBroadcast();
@@ -222,6 +232,9 @@ namespace SteamNetworkLib.TestMod
             if (_failed) yield break;
 
             yield return RunClientDirectP2P(hostId);
+            if (_failed) yield break;
+
+            yield return RunClientModelMessages(hostId);
             if (_failed) yield break;
 
             yield return RunClientBroadcast();
@@ -341,6 +354,140 @@ namespace SteamNetworkLib.TestMod
 
             yield return SendStandardMessages(hostId, "client", "host");
             if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunHostModelMessages(CSteamID clientId)
+        {
+            const string phase = "p2p.message-models";
+            yield return SendModelMessageSuite(clientId, "host", phase);
+            if (_failed) yield break;
+
+            yield return WaitFor(
+                () => HasAllModelAcks("host") && HasAllModelMessages("client"),
+                40f,
+                phase,
+                "Host did not receive all client model messages and acknowledgements");
+
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunClientModelMessages(CSteamID hostId)
+        {
+            const string phase = "p2p.message-models";
+            yield return WaitFor(() => HasAllModelMessages("host"), 40f, phase, "Client did not receive all host model messages");
+            if (_failed) yield break;
+
+            yield return SendModelMessageSuite(hostId, "client", phase);
+            if (_failed) yield break;
+
+            yield return WaitFor(() => HasAllModelAcks("client"), 40f, phase, "Client did not receive all model message acknowledgements");
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator SendModelMessageSuite(CSteamID targetId, string origin, string phase)
+        {
+            var senderId = SteamUser.GetSteamID();
+
+            var eventTask = _client!.SendMessageToPlayerAsync(targetId, new EventMessage
+            {
+                EventType = "integration",
+                EventName = ModelKey("event", origin),
+                EventData = $"payload-{origin}",
+                Priority = 2,
+                ShouldPersist = true,
+                TargetAudience = "specific_players",
+                TargetPlayerIds = targetId.m_SteamID.ToString(),
+                RequiresAck = true,
+                EventId = ModelKey("event-id", origin),
+                Tags = "realgame,model",
+                SenderId = senderId
+            });
+            yield return WaitForSend(eventTask, phase, "EventMessage");
+            if (_failed) yield break;
+
+            var dataTask = _client.SendMessageToPlayerAsync(targetId, new DataSyncMessage
+            {
+                Key = ModelKey("data", origin),
+                Value = $"state={origin};count=5;safe-json={{phase:model}}",
+                DataType = "structured-text",
+                SenderId = senderId
+            });
+            yield return WaitForSend(dataTask, phase, "DataSyncMessage model payload");
+            if (_failed) yield break;
+
+            var heartbeatTask = _client.SendMessageToPlayerAsync(targetId, new HeartbeatMessage
+            {
+                HeartbeatId = ModelKey("heartbeat", origin),
+                IsResponse = false,
+                SequenceNumber = origin == "host" ? 100u : 200u,
+                PacketLossPercent = 1.25f,
+                AverageLatencyMs = 12.5f,
+                BandwidthUsage = 4096,
+                PlayerStatus = "testing",
+                ConnectionInfo = $"realgame-{origin}",
+                SenderId = senderId
+            });
+            yield return WaitForSend(heartbeatTask, phase, "HeartbeatMessage");
+            if (_failed) yield break;
+
+            var streamPayload = CreatePayload(ModelStreamPayloadSize);
+            var streamTask = _client.SendMessageToPlayerAsync(targetId, new StreamMessage
+            {
+                StreamType = "data",
+                StreamId = ModelKey("stream", origin),
+                SequenceNumber = origin == "host" ? 300u : 400u,
+                CaptureTimestamp = DateTime.UtcNow.Ticks,
+                SampleRate = 48000,
+                Channels = 2,
+                BitsPerSample = 16,
+                FrameSamples = 960,
+                Codec = "none",
+                Quality = 100,
+                IsStreamStart = true,
+                IsStreamEnd = false,
+                StreamData = streamPayload,
+                Metadata = $"checksum:{Checksum(streamPayload)}",
+                AckForSequence = origin == "host" ? 299u : 399u,
+                PayloadType = "binary_test",
+                FrameDurationMs = 20,
+                Priority = 200,
+                SenderId = senderId
+            });
+            yield return WaitForSend(streamTask, phase, "StreamMessage");
+            if (_failed) yield break;
+
+            var filePayload = CreatePayload(ModelFilePayloadSize);
+            yield return SendFileTransfer(targetId, origin, filePayload, phase);
+        }
+
+        private IEnumerator SendFileTransfer(CSteamID targetId, string origin, byte[] payload, string phase)
+        {
+            const int chunkSize = 1536;
+            var totalChunks = (int)Math.Ceiling(payload.Length / (double)chunkSize);
+            var transferId = ModelKey("file", origin);
+            var fileName = $"{transferId}|{payload.Length}|{Checksum(payload)}";
+
+            for (var chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++)
+            {
+                var offset = chunkIndex * chunkSize;
+                var count = Math.Min(chunkSize, payload.Length - offset);
+                var chunk = new byte[count];
+                Array.Copy(payload, offset, chunk, 0, count);
+
+                var task = _client!.SendMessageToPlayerAsync(targetId, new FileTransferMessage
+                {
+                    TransferId = transferId,
+                    FileName = fileName,
+                    FileSize = payload.Length,
+                    ChunkIndex = chunkIndex,
+                    TotalChunks = totalChunks,
+                    IsFileData = true,
+                    ChunkData = chunk,
+                    SenderId = SteamUser.GetSteamID()
+                });
+                yield return WaitForSend(task, phase, $"FileTransferMessage chunk {chunkIndex + 1}/{totalChunks}");
+                if (_failed) yield break;
+            }
         }
 
         private IEnumerator SendStandardMessages(CSteamID targetId, string from, string to)
@@ -539,6 +686,11 @@ namespace SteamNetworkLib.TestMod
             {
                 _directMessagesReceived++;
             }
+            else if (message.Content.StartsWith("model-ack:", StringComparison.Ordinal))
+            {
+                var ackKey = message.Content.Substring("model-ack:".Length);
+                _modelMessageAcksReceived.Add(ackKey);
+            }
             else if (message.Content == "broadcast:host")
             {
                 _broadcastMessagesReceived++;
@@ -556,6 +708,11 @@ namespace SteamNetworkLib.TestMod
             if (message.Key.StartsWith("direct:", StringComparison.Ordinal))
             {
                 _directMessagesReceived++;
+            }
+            else if (message.Key.StartsWith("model:data:", StringComparison.Ordinal) &&
+                     message.Value.Contains("phase:model"))
+            {
+                MarkModelMessageReceived(message.Key, sender);
             }
 
             Logger.Msg($"DataSyncMessage from {sender.m_SteamID}: {message.Key}={message.Value}");
@@ -581,7 +738,53 @@ namespace SteamNetworkLib.TestMod
             }
 
             chunks.Add(message);
+            if (message.TransferId.StartsWith("model:file:", StringComparison.Ordinal) &&
+                HasValidFileTransfer(message.TransferId))
+            {
+                MarkModelMessageReceived(message.TransferId, sender);
+            }
+
             Logger.Msg($"FileTransferMessage from {sender.m_SteamID}: {message.FileName} chunk {message.ChunkIndex + 1}/{message.TotalChunks}");
+        }
+
+        private void OnEventMessageReceived(EventMessage message, CSteamID sender)
+        {
+            if (message.EventName.StartsWith("model:event:", StringComparison.Ordinal) &&
+                message.EventType == "integration" &&
+                message.RequiresAck &&
+                message.EventData.StartsWith("payload-", StringComparison.Ordinal))
+            {
+                MarkModelMessageReceived(message.EventName, sender);
+            }
+
+            Logger.Msg($"EventMessage from {sender.m_SteamID}: {message.EventName}");
+        }
+
+        private void OnHeartbeatMessageReceived(HeartbeatMessage message, CSteamID sender)
+        {
+            if (message.HeartbeatId.StartsWith("model:heartbeat:", StringComparison.Ordinal) &&
+                !message.IsResponse &&
+                message.PlayerStatus == "testing" &&
+                message.ConnectionInfo.StartsWith("realgame-", StringComparison.Ordinal))
+            {
+                MarkModelMessageReceived(message.HeartbeatId, sender);
+            }
+
+            Logger.Msg($"HeartbeatMessage from {sender.m_SteamID}: {message.HeartbeatId}");
+        }
+
+        private void OnStreamMessageReceived(StreamMessage message, CSteamID sender)
+        {
+            if (message.StreamId.StartsWith("model:stream:", StringComparison.Ordinal) &&
+                message.StreamType == "data" &&
+                message.PayloadType == "binary_test" &&
+                message.StreamData.Length == ModelStreamPayloadSize &&
+                message.Metadata == $"checksum:{Checksum(message.StreamData)}")
+            {
+                MarkModelMessageReceived(message.StreamId, sender);
+            }
+
+            Logger.Msg($"StreamMessage from {sender.m_SteamID}: {message.StreamId} bytes={message.StreamData.Length}");
         }
 
         private bool HasValidLargeTransfer()
@@ -631,6 +834,81 @@ namespace SteamNetworkLib.TestMod
             }
 
             return false;
+        }
+
+        private bool HasValidFileTransfer(string transferId)
+        {
+            if (!_fileTransfers.TryGetValue(transferId, out var chunks) || chunks.Count == 0)
+            {
+                return false;
+            }
+
+            var first = chunks[0];
+            if (chunks.Count < first.TotalChunks)
+            {
+                return false;
+            }
+
+            chunks.Sort((left, right) => left.ChunkIndex.CompareTo(right.ChunkIndex));
+            var data = new byte[first.FileSize];
+            var offset = 0;
+            for (var i = 0; i < chunks.Count; i++)
+            {
+                if (chunks[i].ChunkIndex != i)
+                {
+                    return false;
+                }
+
+                Array.Copy(chunks[i].ChunkData, 0, data, offset, chunks[i].ChunkData.Length);
+                offset += chunks[i].ChunkData.Length;
+            }
+
+            if (offset != first.FileSize)
+            {
+                return false;
+            }
+
+            var parts = first.FileName.Split('|');
+            return parts.Length >= 3 &&
+                   int.TryParse(parts[1], out var expectedLength) &&
+                   int.TryParse(parts[2], out var expectedChecksum) &&
+                   expectedLength == data.Length &&
+                   expectedChecksum == Checksum(data);
+        }
+
+        private bool HasAllModelMessages(string origin)
+        {
+            return _modelMessagesReceived.Contains(ModelKey("event", origin)) &&
+                   _modelMessagesReceived.Contains(ModelKey("data", origin)) &&
+                   _modelMessagesReceived.Contains(ModelKey("heartbeat", origin)) &&
+                   _modelMessagesReceived.Contains(ModelKey("stream", origin)) &&
+                   _modelMessagesReceived.Contains(ModelKey("file", origin));
+        }
+
+        private bool HasAllModelAcks(string origin)
+        {
+            return _modelMessageAcksReceived.Contains(ModelKey("event", origin)) &&
+                   _modelMessageAcksReceived.Contains(ModelKey("data", origin)) &&
+                   _modelMessageAcksReceived.Contains(ModelKey("heartbeat", origin)) &&
+                   _modelMessageAcksReceived.Contains(ModelKey("stream", origin)) &&
+                   _modelMessageAcksReceived.Contains(ModelKey("file", origin));
+        }
+
+        private void MarkModelMessageReceived(string key, CSteamID sender)
+        {
+            if (_modelMessagesReceived.Add(key))
+            {
+                _ = _client!.SendMessageToPlayerAsync(sender, new TextMessage
+                {
+                    Content = $"model-ack:{key}",
+                    SenderId = SteamUser.GetSteamID()
+                });
+            }
+        }
+
+        private static string ModelKey(string modelName, string origin)
+        {
+            return $"model:{modelName}:{origin}";
         }
 
         private static byte[] CreatePayload(int size)
