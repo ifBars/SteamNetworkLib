@@ -74,6 +74,7 @@ namespace SteamNetworkLib.TestMod
         private const int LargePayloadSize = 70 * 1024;
         private const int ModelFilePayloadSize = 6 * 1024;
         private const int ModelStreamPayloadSize = 2048;
+        private const int MusicFilePayloadSize = 2 * 1024 * 1024;
 
         private static readonly MelonLogger.Instance Logger = new("SteamNetworkLib.TestMod");
 
@@ -85,11 +86,14 @@ namespace SteamNetworkLib.TestMod
 
         private static string LobbyFile => Path.Combine(SharedDir, "lobby.txt");
         private static string ResultsFile => Path.Combine(SharedDir, "results.txt");
+        private static string MetricsFile => Path.Combine(SharedDir, "performance-metrics.jsonl");
 
         private readonly List<string> _passedPhases = new List<string>();
         private readonly Dictionary<string, List<FileTransferMessage>> _fileTransfers = new Dictionary<string, List<FileTransferMessage>>();
+        private readonly Dictionary<string, long> _fileTransferFirstChunkTicks = new Dictionary<string, long>();
         private readonly HashSet<string> _modelMessagesReceived = new HashSet<string>();
         private readonly HashSet<string> _modelMessageAcksReceived = new HashSet<string>();
+        private readonly HashSet<string> _recordedMetricKeys = new HashSet<string>();
 
         private SteamNetworkClient? _client;
         private bool _isHost;
@@ -103,6 +107,7 @@ namespace SteamNetworkLib.TestMod
         private int _directMessagesSent;
         private int _broadcastMessagesReceived;
         private bool _largeTransferAckReceived;
+        private bool _musicTransferAckReceived;
 
         private string Role => _isHost ? "HOST" : "CLIENT";
         private string RoleResultsFile => Path.Combine(SharedDir, _isHost ? "host-results.txt" : "client-results.txt");
@@ -138,6 +143,11 @@ namespace SteamNetworkLib.TestMod
             if (File.Exists(RoleResultsFile))
             {
                 File.Delete(RoleResultsFile);
+            }
+
+            if (_isHost && File.Exists(MetricsFile))
+            {
+                File.Delete(MetricsFile);
             }
         }
 
@@ -212,6 +222,9 @@ namespace SteamNetworkLib.TestMod
             yield return RunHostLargeTransfer(clientId);
             if (_failed) yield break;
 
+            yield return RunHostMusicFileTransfer(clientId);
+            if (_failed) yield break;
+
             yield return RunPacketLimitChecks(clientId);
             if (_failed) yield break;
 
@@ -244,6 +257,9 @@ namespace SteamNetworkLib.TestMod
             if (_failed) yield break;
 
             yield return RunClientLargeTransferAck(hostId);
+            if (_failed) yield break;
+
+            yield return RunClientMusicFileTransferAck(hostId);
             if (_failed) yield break;
 
             yield return RunPacketLimitChecks(hostId);
@@ -339,27 +355,39 @@ namespace SteamNetworkLib.TestMod
         private IEnumerator RunHostDirectP2P(CSteamID clientId)
         {
             const string phase = "p2p.direct";
+            var startedAt = DateTime.UtcNow;
             yield return SendStandardMessages(clientId, "host", "client");
             if (_failed) yield break;
 
             yield return WaitFor(() => _directMessagesReceived >= 3, 30f, phase, "Host did not receive all client direct messages");
-            if (!_failed) MarkPassed(phase);
+            if (!_failed)
+            {
+                RecordMetric("small-direct-message-exchange", "Small direct messages", "host-to-client-and-client-to-host", 3, 3, startedAt, 0, "3 direct messages sent by each side; Text/DataSync/custom transaction");
+                MarkPassed(phase);
+            }
         }
 
         private IEnumerator RunClientDirectP2P(CSteamID hostId)
         {
             const string phase = "p2p.direct";
+            var startedAt = DateTime.UtcNow;
             yield return WaitFor(() => _directMessagesReceived >= 3, 30f, phase, "Client did not receive all host direct messages");
             if (_failed) yield break;
 
             yield return SendStandardMessages(hostId, "client", "host");
-            if (!_failed) MarkPassed(phase);
+            if (!_failed)
+            {
+                RecordMetric("small-direct-message-exchange", "Small direct messages", "client-to-host-and-host-to-client", 3, 3, startedAt, 0, "3 direct messages sent by each side; Text/DataSync/custom transaction");
+                MarkPassed(phase);
+            }
         }
 
         private IEnumerator RunHostModelMessages(CSteamID clientId)
         {
             const string phase = "p2p.message-models";
-            yield return SendModelMessageSuite(clientId, "host", phase);
+            var startedAt = DateTime.UtcNow;
+            var bytesSent = 0;
+            yield return SendModelMessageSuite(clientId, "host", phase, bytes => bytesSent = bytes);
             if (_failed) yield break;
 
             yield return WaitFor(
@@ -368,7 +396,11 @@ namespace SteamNetworkLib.TestMod
                 phase,
                 "Host did not receive all client model messages and acknowledgements");
 
-            if (!_failed) MarkPassed(phase);
+            if (!_failed)
+            {
+                RecordMetric("built-in-message-model-suite", "Built-in message model suite", "host-to-client", 5, bytesSent, startedAt, 0, "Event/DataSync/Heartbeat/Stream/FileTransfer with acknowledgements");
+                MarkPassed(phase);
+            }
         }
 
         private IEnumerator RunClientModelMessages(CSteamID hostId)
@@ -377,18 +409,25 @@ namespace SteamNetworkLib.TestMod
             yield return WaitFor(() => HasAllModelMessages("host"), 40f, phase, "Client did not receive all host model messages");
             if (_failed) yield break;
 
-            yield return SendModelMessageSuite(hostId, "client", phase);
+            var startedAt = DateTime.UtcNow;
+            var bytesSent = 0;
+            yield return SendModelMessageSuite(hostId, "client", phase, bytes => bytesSent = bytes);
             if (_failed) yield break;
 
             yield return WaitFor(() => HasAllModelAcks("client"), 40f, phase, "Client did not receive all model message acknowledgements");
-            if (!_failed) MarkPassed(phase);
+            if (!_failed)
+            {
+                RecordMetric("built-in-message-model-suite", "Built-in message model suite", "client-to-host", 5, bytesSent, startedAt, 0, "Event/DataSync/Heartbeat/Stream/FileTransfer with acknowledgements");
+                MarkPassed(phase);
+            }
         }
 
-        private IEnumerator SendModelMessageSuite(CSteamID targetId, string origin, string phase)
+        private IEnumerator SendModelMessageSuite(CSteamID targetId, string origin, string phase, Action<int> setBytesSent)
         {
             var senderId = SteamUser.GetSteamID();
+            var bytesSent = 0;
 
-            var eventTask = _client!.SendMessageToPlayerAsync(targetId, new EventMessage
+            var eventMessage = new EventMessage
             {
                 EventType = "integration",
                 EventName = ModelKey("event", origin),
@@ -401,21 +440,25 @@ namespace SteamNetworkLib.TestMod
                 EventId = ModelKey("event-id", origin),
                 Tags = "realgame,model",
                 SenderId = senderId
-            });
+            };
+            bytesSent += eventMessage.Serialize().Length;
+            var eventTask = _client!.SendMessageToPlayerAsync(targetId, eventMessage);
             yield return WaitForSend(eventTask, phase, "EventMessage");
             if (_failed) yield break;
 
-            var dataTask = _client.SendMessageToPlayerAsync(targetId, new DataSyncMessage
+            var dataMessage = new DataSyncMessage
             {
                 Key = ModelKey("data", origin),
                 Value = $"state={origin};count=5;safe-json={{phase:model}}",
                 DataType = "structured-text",
                 SenderId = senderId
-            });
+            };
+            bytesSent += dataMessage.Serialize().Length;
+            var dataTask = _client.SendMessageToPlayerAsync(targetId, dataMessage);
             yield return WaitForSend(dataTask, phase, "DataSyncMessage model payload");
             if (_failed) yield break;
 
-            var heartbeatTask = _client.SendMessageToPlayerAsync(targetId, new HeartbeatMessage
+            var heartbeatMessage = new HeartbeatMessage
             {
                 HeartbeatId = ModelKey("heartbeat", origin),
                 IsResponse = false,
@@ -426,12 +469,14 @@ namespace SteamNetworkLib.TestMod
                 PlayerStatus = "testing",
                 ConnectionInfo = $"realgame-{origin}",
                 SenderId = senderId
-            });
+            };
+            bytesSent += heartbeatMessage.Serialize().Length;
+            var heartbeatTask = _client.SendMessageToPlayerAsync(targetId, heartbeatMessage);
             yield return WaitForSend(heartbeatTask, phase, "HeartbeatMessage");
             if (_failed) yield break;
 
             var streamPayload = CreatePayload(ModelStreamPayloadSize);
-            var streamTask = _client.SendMessageToPlayerAsync(targetId, new StreamMessage
+            var streamMessage = new StreamMessage
             {
                 StreamType = "data",
                 StreamId = ModelKey("stream", origin),
@@ -452,15 +497,18 @@ namespace SteamNetworkLib.TestMod
                 FrameDurationMs = 20,
                 Priority = 200,
                 SenderId = senderId
-            });
+            };
+            bytesSent += streamMessage.Serialize().Length;
+            var streamTask = _client.SendMessageToPlayerAsync(targetId, streamMessage);
             yield return WaitForSend(streamTask, phase, "StreamMessage");
             if (_failed) yield break;
 
             var filePayload = CreatePayload(ModelFilePayloadSize);
-            yield return SendFileTransfer(targetId, origin, filePayload, phase);
+            yield return SendFileTransfer(targetId, origin, filePayload, phase, bytes => bytesSent += bytes);
+            setBytesSent(bytesSent);
         }
 
-        private IEnumerator SendFileTransfer(CSteamID targetId, string origin, byte[] payload, string phase)
+        private IEnumerator SendFileTransfer(CSteamID targetId, string origin, byte[] payload, string phase, Action<int>? addBytesSent = null)
         {
             const int chunkSize = 1536;
             var totalChunks = (int)Math.Ceiling(payload.Length / (double)chunkSize);
@@ -474,7 +522,7 @@ namespace SteamNetworkLib.TestMod
                 var chunk = new byte[count];
                 Array.Copy(payload, offset, chunk, 0, count);
 
-                var task = _client!.SendMessageToPlayerAsync(targetId, new FileTransferMessage
+                var message = new FileTransferMessage
                 {
                     TransferId = transferId,
                     FileName = fileName,
@@ -484,7 +532,9 @@ namespace SteamNetworkLib.TestMod
                     IsFileData = true,
                     ChunkData = chunk,
                     SenderId = SteamUser.GetSteamID()
-                });
+                };
+                addBytesSent?.Invoke(message.Serialize().Length);
+                var task = _client!.SendMessageToPlayerAsync(targetId, message);
                 yield return WaitForSend(task, phase, $"FileTransferMessage chunk {chunkIndex + 1}/{totalChunks}");
                 if (_failed) yield break;
             }
@@ -596,13 +646,18 @@ namespace SteamNetworkLib.TestMod
             var payload = CreatePayload(LargePayloadSize);
             var checksum = Checksum(payload);
             var transferName = $"realgame-large|{payload.Length}|{checksum}";
+            var startedAt = DateTime.UtcNow;
 
             var task = _client!.SendLargeDataToPlayerAsync(clientId, transferName, payload, 0, 4096);
             yield return WaitForSend(task, phase, "SendLargeDataToPlayerAsync");
             if (_failed) yield break;
 
             yield return WaitFor(() => _largeTransferAckReceived, 30f, phase, "Host did not receive large transfer acknowledgment");
-            if (!_failed) MarkPassed(phase);
+            if (!_failed)
+            {
+                RecordMetric("large-mod-state-transfer-70kb", "70 KB mod state blob", "host-to-client", Math.Max(1, payload.Length / 4096), payload.Length, startedAt, 0, "Reliable file-transfer chunks with checksum acknowledgement");
+                MarkPassed(phase);
+            }
         }
 
         private IEnumerator RunClientLargeTransferAck(CSteamID hostId)
@@ -617,6 +672,41 @@ namespace SteamNetworkLib.TestMod
                 SenderId = SteamUser.GetSteamID()
             });
             yield return WaitForSend(ackTask, phase, "large transfer acknowledgment");
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunHostMusicFileTransfer(CSteamID clientId)
+        {
+            const string phase = "p2p.music-file-2mb";
+            var payload = CreatePayload(MusicFilePayloadSize);
+            var checksum = Checksum(payload);
+            var transferName = $"music-file-2mb|{payload.Length}|{checksum}";
+            var startedAt = DateTime.UtcNow;
+
+            var task = _client!.SendLargeDataToPlayerAsync(clientId, transferName, payload, 0, 64 * 1024);
+            yield return WaitForSend(task, phase, "2 MB music file transfer");
+            if (_failed) yield break;
+
+            yield return WaitFor(() => _musicTransferAckReceived, 60f, phase, "Host did not receive 2 MB music file acknowledgement");
+            if (!_failed)
+            {
+                RecordMetric("music-file-transfer-2mb", "Share a 2 MB music file", "host-to-client", Math.Max(1, payload.Length / (64 * 1024)), payload.Length, startedAt, 0, "Reliable chunks; local isolated Goldberg/Steam-compatible process baseline");
+                MarkPassed(phase);
+            }
+        }
+
+        private IEnumerator RunClientMusicFileTransferAck(CSteamID hostId)
+        {
+            const string phase = "p2p.music-file-2mb";
+            yield return WaitFor(() => HasValidNamedTransfer("music-file-2mb"), 60f, phase, "Client did not receive a valid 2 MB music file transfer");
+            if (_failed) yield break;
+
+            var ackTask = _client!.SendMessageToPlayerAsync(hostId, new TextMessage
+            {
+                Content = "music-transfer-2mb:ok",
+                SenderId = SteamUser.GetSteamID()
+            });
+            yield return WaitForSend(ackTask, phase, "2 MB music file acknowledgment");
             if (!_failed) MarkPassed(phase);
         }
 
@@ -699,6 +789,10 @@ namespace SteamNetworkLib.TestMod
             {
                 _largeTransferAckReceived = true;
             }
+            else if (message.Content == "music-transfer-2mb:ok")
+            {
+                _musicTransferAckReceived = true;
+            }
 
             Logger.Msg($"TextMessage from {sender.m_SteamID}: {message.Content}");
         }
@@ -735,6 +829,11 @@ namespace SteamNetworkLib.TestMod
             {
                 chunks = new List<FileTransferMessage>();
                 _fileTransfers[key] = chunks;
+            }
+
+            if (!_fileTransferFirstChunkTicks.ContainsKey(key))
+            {
+                _fileTransferFirstChunkTicks[key] = DateTime.UtcNow.Ticks;
             }
 
             chunks.Add(message);
@@ -834,6 +933,82 @@ namespace SteamNetworkLib.TestMod
             }
 
             return false;
+        }
+
+        private bool HasValidNamedTransfer(string prefix)
+        {
+            foreach (var entry in _fileTransfers)
+            {
+                var chunks = entry.Value;
+                if (chunks.Count == 0)
+                {
+                    continue;
+                }
+
+                var first = chunks[0];
+                if (!first.FileName.StartsWith(prefix + "|", StringComparison.Ordinal) ||
+                    !HasValidFileTransfer(entry.Key))
+                {
+                    continue;
+                }
+
+                if (_fileTransferFirstChunkTicks.TryGetValue(entry.Key, out var firstChunkTicks))
+                {
+                    var metricKey = $"{prefix}:receive";
+                    if (_recordedMetricKeys.Contains(metricKey))
+                    {
+                        return true;
+                    }
+
+                    _recordedMetricKeys.Add(metricKey);
+                    RecordMetric(
+                        prefix,
+                        prefix == "music-file-2mb" ? "Receive a 2 MB music file" : "Receive file transfer",
+                        "host-to-client-receive",
+                        Math.Max(1, first.TotalChunks),
+                        first.FileSize,
+                        new DateTime(firstChunkTicks, DateTimeKind.Utc),
+                        0,
+                        "Receiver-side time from first chunk to complete checksum validation");
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private void RecordMetric(string scenario, string label, string direction, int messages, int bytes, DateTime startedAtUtc, double latencyMs, string notes)
+        {
+            var completedAtUtc = DateTime.UtcNow;
+            var durationMs = Math.Max(0.001, (completedAtUtc - startedAtUtc).TotalMilliseconds);
+            var throughputMbps = bytes <= 0 ? 0 : (bytes * 8.0) / durationMs / 1000.0;
+            var json = "{" +
+                       $"\"schemaVersion\":1," +
+                       $"\"scenario\":\"{EscapeJson(scenario)}\"," +
+                       $"\"label\":\"{EscapeJson(label)}\"," +
+                       $"\"role\":\"{EscapeJson(Role.ToLowerInvariant())}\"," +
+                       $"\"direction\":\"{EscapeJson(direction)}\"," +
+                       $"\"runtime\":\"Mono\"," +
+                       $"\"transport\":\"Steam P2P compatible local baseline\"," +
+                       $"\"environment\":\"Isolated Schedule I processes with Goldberg-compatible local Steam config\"," +
+                       $"\"bytes\":{bytes}," +
+                       $"\"messages\":{messages}," +
+                       $"\"durationMs\":{durationMs:F3}," +
+                       $"\"throughputMbps\":{throughputMbps:F3}," +
+                       $"\"latencyMs\":{latencyMs:F3}," +
+                       $"\"startedAtUtc\":\"{startedAtUtc:O}\"," +
+                       $"\"completedAtUtc\":\"{completedAtUtc:O}\"," +
+                       $"\"notes\":\"{EscapeJson(notes)}\"" +
+                       "}";
+
+            File.AppendAllText(MetricsFile, json + Environment.NewLine);
+            Logger.Msg($"[METRIC] {scenario} {direction}: {durationMs:F1}ms, {throughputMbps:F2} Mbps");
+        }
+
+        private static string EscapeJson(string value)
+        {
+            return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
         }
 
         private bool HasValidFileTransfer(string transferId)

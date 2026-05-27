@@ -44,6 +44,11 @@
         "files": [
           "styles/**"
         ]
+      },
+      {
+        "files": [
+          "docs/*.html"
+        ]
       }
     ],
     "output": "_site",

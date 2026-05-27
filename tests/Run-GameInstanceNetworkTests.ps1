@@ -16,6 +16,7 @@ param(
     [string]$ClientSteamId = "76561199485712034",
     [int]$HostInitDelaySeconds = 25,
     [int]$TestTimeoutSeconds = 90,
+    [string]$MetricsOutputPath = "",
     [switch]$KeepInstances
 )
 
@@ -206,6 +207,7 @@ $clientDir = Join-Path $testRoot "client"
 $sharedDir = Join-Path $testRoot "shared"
 $hostResults = Join-Path $sharedDir "host-results.txt"
 $clientResults = Join-Path $sharedDir "client-results.txt"
+$metricsFile = Join-Path $sharedDir "performance-metrics.jsonl"
 
 $hostProcess = $null
 $clientProcess = $null
@@ -282,6 +284,21 @@ try {
         Write-Host "Host log: $hostLog" -ForegroundColor Yellow
         Write-Host "Client log: $clientLog" -ForegroundColor Yellow
         exit 1
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($MetricsOutputPath)) {
+        if (-not (Test-Path -LiteralPath $metricsFile)) {
+            throw "Performance metrics file was not written: $metricsFile"
+        }
+
+        $metricsOutputFullPath = [System.IO.Path]::GetFullPath($MetricsOutputPath)
+        $metricsOutputDir = Split-Path -Parent $metricsOutputFullPath
+        if (-not [string]::IsNullOrWhiteSpace($metricsOutputDir)) {
+            New-Item -ItemType Directory -Path $metricsOutputDir -Force | Out-Null
+        }
+
+        Copy-Item -LiteralPath $metricsFile -Destination $metricsOutputFullPath -Force
+        Write-Host "Performance metrics copied to: $metricsOutputFullPath" -ForegroundColor Green
     }
 
     Write-Host "All isolated real-game networking tests passed." -ForegroundColor Green
