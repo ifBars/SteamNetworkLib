@@ -118,8 +118,8 @@ namespace SteamNetworkLib.Models
         }
 
         /// <summary>
-        /// Simple JSON value extractor that avoids dependencies on external JSON libraries.
-        /// Handles both quoted strings and unquoted values (numbers, booleans).
+        /// Extracts a simple JSON value without taking a dependency on an external JSON library.
+        /// Handles quoted strings and unquoted primitive values such as numbers and booleans.
         /// </summary>
         /// <param name="json">The JSON string to extract the value from.</param>
         /// <param name="key">The key of the value to extract.</param>
@@ -206,6 +206,11 @@ namespace SteamNetworkLib.Models
         /// <summary>
         /// Extracts the raw JSON value for a key without unescaping or trimming nested content.
         /// </summary>
+        /// <remarks>
+        /// Use this from derived message types when a property contains a nested payload that
+        /// must be passed to another serializer. The returned value includes object or array
+        /// delimiters and is not unescaped or converted.
+        /// </remarks>
         /// <param name="json">The JSON string to extract the value from.</param>
         /// <param name="key">The key of the value to extract.</param>
         /// <returns>The raw JSON value, or an empty string if not found.</returns>

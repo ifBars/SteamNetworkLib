@@ -255,64 +255,16 @@ jobs:
       - name: Build IL2CPP
         run: dotnet build SteamNetworkLib.csproj --no-restore -c Il2cpp -v minimal
 
-      - name: Prepare Release Packages
+      - name: Prepare Release Assets
         shell: pwsh
         run: |
-          $version = '${{ needs.check-version.outputs.new-version }}'
           $releaseRoot = Join-Path $PWD 'release'
-          $monoRoot = Join-Path $releaseRoot 'SteamNetworkLib Mono'
-          $il2cppRoot = Join-Path $releaseRoot 'SteamNetworkLib Il2Cpp'
 
           Remove-Item $releaseRoot -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Path (Join-Path $monoRoot 'UserLibs') -Force | Out-Null
-          New-Item -ItemType Directory -Path (Join-Path $monoRoot 'fomod') -Force | Out-Null
-          New-Item -ItemType Directory -Path (Join-Path $il2cppRoot 'UserLibs') -Force | Out-Null
-          New-Item -ItemType Directory -Path (Join-Path $il2cppRoot 'fomod') -Force | Out-Null
+          New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
 
-          Copy-Item 'bin/Mono/netstandard2.1/SteamNetworkLib.dll' (Join-Path $monoRoot 'UserLibs/SteamNetworkLib-Mono.dll')
-          Copy-Item 'bin/Il2cpp/netstandard2.1/SteamNetworkLib.dll' (Join-Path $il2cppRoot 'UserLibs/SteamNetworkLib-IL2Cpp.dll')
-          Copy-Item 'packaging/icon.png' (Join-Path $monoRoot 'icon.png')
-          Copy-Item 'packaging/icon.png' (Join-Path $il2cppRoot 'icon.png')
-          Copy-Item 'README.md' (Join-Path $monoRoot 'README.md')
-          Copy-Item 'README.md' (Join-Path $il2cppRoot 'README.md')
-          Copy-Item 'packaging/fomod/ModuleConfig.xml' (Join-Path $monoRoot 'fomod/ModuleConfig.xml')
-          Copy-Item 'packaging/fomod/ModuleConfig.xml' (Join-Path $il2cppRoot 'fomod/ModuleConfig.xml')
-
-          $manifestTemplate = @{
-            website_url = 'https://ifbars.github.io/SteamNetworkLib/'
-            description = 'A streamlined, object-oriented Steam networking library designed specifically for Schedule 1 mods.'
-            dependencies = @()
-            version_number = $version
-          }
-
-          $monoManifest = $manifestTemplate.Clone()
-          $monoManifest.name = 'SteamNetworkLib_Mono'
-          $monoManifest | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $monoRoot 'manifest.json') -Encoding UTF8
-
-          $il2cppManifest = $manifestTemplate.Clone()
-          $il2cppManifest.name = 'SteamNetworkLib_Il2Cpp'
-          $il2cppManifest | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $il2cppRoot 'manifest.json') -Encoding UTF8
-
-          $fomodInfo = @"
-          <fomod>
-            <Name>SteamNetworkLib</Name>
-            <Author>ifBars</Author>
-            <Version>$version</Version>
-            <Website>https://www.nexusmods.com/schedule1/mods/1396</Website>
-            <Description>A streamlined, object-oriented Steam networking library designed specifically for MelonLoader mods</Description>
-            <Groups>
-              <element>Utilities</element>
-            </Groups>
-          </fomod>
-          "@
-
-          Set-Content (Join-Path $monoRoot 'fomod/info.xml') $fomodInfo -Encoding UTF8
-          Set-Content (Join-Path $il2cppRoot 'fomod/info.xml') $fomodInfo -Encoding UTF8
-
-          Compress-Archive -Path (Join-Path $monoRoot 'UserLibs'),(Join-Path $monoRoot 'icon.png'),(Join-Path $monoRoot 'manifest.json'),(Join-Path $monoRoot 'README.md') -DestinationPath (Join-Path $releaseRoot 'SteamNetworkLib-Mono-TS.zip') -Force
-          Compress-Archive -Path (Join-Path $monoRoot 'UserLibs'),(Join-Path $monoRoot 'icon.png'),(Join-Path $monoRoot 'README.md'),(Join-Path $monoRoot 'fomod') -DestinationPath (Join-Path $releaseRoot 'SteamNetworkLib-Mono-Nexus.zip') -Force
-          Compress-Archive -Path (Join-Path $il2cppRoot 'UserLibs'),(Join-Path $il2cppRoot 'icon.png'),(Join-Path $il2cppRoot 'manifest.json'),(Join-Path $il2cppRoot 'README.md') -DestinationPath (Join-Path $releaseRoot 'SteamNetworkLib-Il2Cpp-TS.zip') -Force
-          Compress-Archive -Path (Join-Path $il2cppRoot 'UserLibs'),(Join-Path $il2cppRoot 'icon.png'),(Join-Path $il2cppRoot 'README.md'),(Join-Path $il2cppRoot 'fomod') -DestinationPath (Join-Path $releaseRoot 'SteamNetworkLib-Il2Cpp-Nexus.zip') -Force
+          Copy-Item 'bin/Mono/netstandard2.1/SteamNetworkLib.dll' (Join-Path $releaseRoot 'SteamNetworkLib-Mono.dll')
+          Copy-Item 'bin/Il2cpp/netstandard2.1/SteamNetworkLib.dll' (Join-Path $releaseRoot 'SteamNetworkLib-IL2Cpp.dll')
 
       - name: Generate Release Notes
         shell: pwsh
@@ -338,12 +290,10 @@ jobs:
           $releaseNotes = @(
             "## SteamNetworkLib v$version"
             ""
-            "### Packages"
+            "### Assets"
             ""
-            "- SteamNetworkLib-Mono-TS.zip"
-            "- SteamNetworkLib-Mono-Nexus.zip"
-            "- SteamNetworkLib-Il2Cpp-TS.zip"
-            "- SteamNetworkLib-Il2Cpp-Nexus.zip"
+            "- SteamNetworkLib-Mono.dll"
+            "- SteamNetworkLib-IL2Cpp.dll"
             ""
             "### Changes"
             ""
@@ -364,10 +314,8 @@ jobs:
           prerelease: ${{ needs.check-version.outputs.prerelease == 'true' }}
           make_latest: ${{ needs.check-version.outputs.make_latest }}
           files: |
-            release/SteamNetworkLib-Mono-TS.zip
-            release/SteamNetworkLib-Mono-Nexus.zip
-            release/SteamNetworkLib-Il2Cpp-TS.zip
-            release/SteamNetworkLib-Il2Cpp-Nexus.zip
+            release/SteamNetworkLib-Mono.dll
+            release/SteamNetworkLib-IL2Cpp.dll
 
       - name: Summary
         shell: pwsh
@@ -378,7 +326,5 @@ jobs:
           Add-Content $env:GITHUB_STEP_SUMMARY "**Prerelease:** ${{ needs.check-version.outputs.prerelease }}"
           Add-Content $env:GITHUB_STEP_SUMMARY ""
           Add-Content $env:GITHUB_STEP_SUMMARY "**Artifacts:**"
-          Add-Content $env:GITHUB_STEP_SUMMARY "- SteamNetworkLib-Mono-TS.zip"
-          Add-Content $env:GITHUB_STEP_SUMMARY "- SteamNetworkLib-Mono-Nexus.zip"
-          Add-Content $env:GITHUB_STEP_SUMMARY "- SteamNetworkLib-Il2Cpp-TS.zip"
-          Add-Content $env:GITHUB_STEP_SUMMARY "- SteamNetworkLib-Il2Cpp-Nexus.zip"
+          Add-Content $env:GITHUB_STEP_SUMMARY "- SteamNetworkLib-Mono.dll"
+          Add-Content $env:GITHUB_STEP_SUMMARY "- SteamNetworkLib-IL2Cpp.dll"

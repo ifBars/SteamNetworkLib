@@ -21,8 +21,12 @@ namespace SteamNetworkLib.Models
 
         /// <summary>
         /// Gets or sets the lobby Steam ID as a 64-bit integer.
-        /// This is often easier to store, compare, serialize, or log than the runtime-specific Steamworks type.
         /// </summary>
+        /// <remarks>
+        /// Use this property for JSON payloads, configuration files, dictionaries, and logs.
+        /// It avoids exposing the runtime-specific Steamworks <c>CSteamID</c> type in
+        /// cross-mod data contracts.
+        /// </remarks>
         public ulong LobbyId64
         {
             get => LobbyId.m_SteamID;
@@ -38,6 +42,10 @@ namespace SteamNetworkLib.Models
         /// <summary>
         /// Gets or sets the lobby owner Steam ID as a 64-bit integer.
         /// </summary>
+        /// <remarks>
+        /// This is the runtime-neutral form of <see cref="OwnerId"/> and is usually the
+        /// better value to store in mod state or transmit in typed P2P payloads.
+        /// </remarks>
         public ulong OwnerId64
         {
             get => OwnerId.m_SteamID;

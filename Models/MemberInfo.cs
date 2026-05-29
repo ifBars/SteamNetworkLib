@@ -21,8 +21,12 @@ namespace SteamNetworkLib.Models
 
         /// <summary>
         /// Gets or sets the member Steam ID as a 64-bit integer.
-        /// This is often easier to store, compare, serialize, or log than the runtime-specific Steamworks type.
         /// </summary>
+        /// <remarks>
+        /// Use this property for JSON payloads, configuration files, dictionaries, and logs.
+        /// It avoids exposing the runtime-specific Steamworks <c>CSteamID</c> type in
+        /// cross-mod data contracts.
+        /// </remarks>
         public ulong SteamId64
         {
             get => SteamId.m_SteamID;
@@ -32,6 +36,10 @@ namespace SteamNetworkLib.Models
         /// <summary>
         /// Gets the member Steam ID as an invariant decimal string.
         /// </summary>
+        /// <remarks>
+        /// This is useful for display, text logs, and string-keyed stores where a numeric
+        /// <see cref="SteamId64"/> value would otherwise need to be formatted repeatedly.
+        /// </remarks>
         public string SteamIdString => SteamId.m_SteamID.ToString();
 
         /// <summary>

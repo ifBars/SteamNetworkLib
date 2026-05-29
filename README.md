@@ -17,6 +17,7 @@ A streamlined, object-oriented Steam networking library designed specifically fo
 
 ### **🌐 P2P Communication**
 - **Type-safe message system** with automatic serialization
+- **Typed payload DTOs** for custom mod transactions and state messages
 - **Broadcast or direct messaging** between players
 - **Built-in message types**: Text, DataSync, DataRequest, FileTransfer
 - **Custom message support** via inheritance

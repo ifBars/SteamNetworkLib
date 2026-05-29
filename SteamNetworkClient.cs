@@ -86,8 +86,16 @@ namespace SteamNetworkLib
         /// Gets whether this client has successfully initialized Steam networking.
         /// </summary>
         /// <remarks>
-        /// Use this before calling networking methods when initialization is delayed until
-        /// Steamworks is attached to the game process.
+        /// <para>
+        /// This becomes <see langword="true"/> only after <see cref="Initialize"/> or
+        /// <see cref="TryInitialize()"/> succeeds. It remains <see langword="false"/> when
+        /// the game is launched without Steamworks, when <c>SteamAPI.Init()</c> has not run
+        /// for the current process, or when initialization fails for any other reason.
+        /// </para>
+        /// <para>
+        /// Use this before calling lobby, member-data, SyncVar, or P2P methods in mods that
+        /// support optional multiplayer or delayed Steamworks startup.
+        /// </para>
         /// </remarks>
         public bool IsInitialized => _isInitialized;
 
@@ -171,11 +179,20 @@ namespace SteamNetworkLib
         /// <summary>
         /// Gets the 64-bit Steam ID of the local player, or 0 when unavailable.
         /// </summary>
+        /// <remarks>
+        /// Prefer this value for logs, dictionaries, config files, JSON payloads, and
+        /// cross-runtime DTOs. Use <see cref="LocalPlayerId"/> only when calling APIs that
+        /// require the Steamworks <c>CSteamID</c> type.
+        /// </remarks>
         public ulong LocalPlayerId64 => LocalPlayerId.m_SteamID;
 
         /// <summary>
         /// Gets the 64-bit Steam ID of the current host, or 0 when not in a lobby/session.
         /// </summary>
+        /// <remarks>
+        /// This mirrors <see cref="CurrentLobby"/> ownership using a runtime-neutral
+        /// primitive value suitable for serialization and comparison.
+        /// </remarks>
         public ulong HostPlayerId64 => CurrentLobby?.OwnerId.m_SteamID ?? 0UL;
 
         /// <summary>
@@ -333,8 +350,17 @@ namespace SteamNetworkLib
         /// </summary>
         /// <returns>True when initialization succeeded; otherwise, false.</returns>
         /// <remarks>
-        /// This is the preferred path for consumer mods that can run in single-player mode or
-        /// retry initialization after Steamworks attaches to the game process.
+        /// <para>
+        /// This is the preferred path for consumer mods that can run in single-player mode,
+        /// retry initialization from a later game lifecycle hook, or tolerate launches where
+        /// Steamworks never attaches to the process.
+        /// </para>
+        /// <para>
+        /// When this method returns <see langword="false"/>, leave local-only gameplay active
+        /// and retry later instead of calling networking methods. Use
+        /// <see cref="TryInitialize(out SteamNetworkException?)"/> when the caller needs the
+        /// failure reason for logging or diagnostics.
+        /// </para>
         /// </remarks>
         public bool TryInitialize()
         {
@@ -346,6 +372,11 @@ namespace SteamNetworkLib
         /// </summary>
         /// <param name="error">The initialization error, or null when initialization succeeded.</param>
         /// <returns>True when initialization succeeded; otherwise, false.</returns>
+        /// <remarks>
+        /// This method wraps <see cref="Initialize"/> and converts initialization failures into
+        /// a boolean result. It does not partially initialize managers on failure, so callers
+        /// can safely retry after Steamworks becomes available.
+        /// </remarks>
         public bool TryInitialize(out SteamNetworkException? error)
         {
             try

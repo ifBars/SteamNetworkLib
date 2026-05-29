@@ -27,6 +27,15 @@ For most custom mod messages, prefer `TypedP2PMessage<TPayload>`. It keeps Steam
 
 This is the recommended shape for transaction/state messages like AutoRestock restock operations, vehicle sync requests, label changes, or host-authored config deltas.
 
+Use this API when you want:
+
+- A stable `MessageType` routed through `RegisterMessageHandler<T>()`.
+- A payload model that can evolve independently from SteamNetworkLib's message metadata.
+- Nested DTOs for small gameplay state such as slot identifiers, item IDs, quantities, prices, and request IDs.
+- Runtime-neutral payloads that work in both Mono and IL2CPP builds.
+
+Use manual `P2PMessage` serialization only when you need binary data, compression, encryption, or an external serializer.
+
 ### Step 1: Define a payload DTO
 
 ```csharp
@@ -90,6 +99,32 @@ await client.SendMessageToPlayerAsync(hostId, new RestockTransactionMessage(
 ```
 
 Do not put `CSteamID`, Unity objects, game objects, item instances, or slot references directly in the payload. Send stable IDs, primitive values, arrays/lists/dictionaries, and small nested DTOs, then resolve game objects locally when the message is handled.
+
+### Payload contract guidelines
+
+Typed payloads are mod-to-mod contracts. Treat them like save data:
+
+| Use | Avoid |
+| --- | --- |
+| `string`, `int`, `float`, `double`, `decimal`, `bool`, `DateTime`, `Guid` | `CSteamID` inside payload DTOs |
+| `ulong` Steam IDs such as `MemberInfo.SteamId64` | Unity `GameObject`, `Transform`, `MonoBehaviour`, or `ScriptableObject` instances |
+| Arrays, lists, dictionaries, and small nested DTOs | Live inventory, item, storage, grid, or slot object references |
+| Stable IDs and coordinates that can be resolved locally | Process-local object handles or scene-only references |
+
+Prefer version-tolerant payloads for messages that may be sent between different mod versions. Add optional properties instead of renaming existing ones, and keep handlers defensive when a field may be empty or default.
+
+### Handler registration
+
+Register typed messages once after `TryInitialize()` succeeds:
+
+```csharp
+if (client.TryInitialize())
+{
+    client.RegisterMessageHandler<RestockTransactionMessage>(OnRestockTransaction);
+}
+```
+
+`RegisterMessageHandler<T>()` also registers the custom message type with SteamNetworkLib's serializer. If a peer sends a message type that has not been registered locally, the raw packet cannot be routed to your handler.
 
 ## Sending custom messages manually
 
@@ -182,36 +217,6 @@ client.BroadcastMessage(transaction);
 ### How it works
 
 The library receives message type identifiers as strings and needs a mapping to C# classes for deserialization. When you call `RegisterMessageHandler<T>()`, the library automatically registers your custom type. Built-in types (TEXT, DATA_SYNC, FILE_TRANSFER, STREAM, HEARTBEAT, EVENT) are pre-registered.
-
-## Sending custom messages
-
-Create a type by inheriting `P2PMessage` and implement `MessageType`, `Serialize`, `Deserialize`.
-
-```csharp
-using System.Text;
-
-public class CustomMessage : P2PMessage
-{
-    public override string MessageType => "CUSTOM";
-    public string Payload { get; set; } = string.Empty;
-
-    public override byte[] Serialize()
-    {
-        var json = $"{{{CreateJsonBase(\"\\\"Payload\\\":\\\"{Payload}\\\"\")}}}";
-        return Encoding.UTF8.GetBytes(json);
-    }
-
-    public override void Deserialize(byte[] data)
-    {
-        var json = Encoding.UTF8.GetString(data);
-        ParseJsonBase(json);
-        Payload = ExtractJsonValue(json, "Payload");
-    }
-}
-
-client.RegisterMessageHandler<CustomMessage>((m, sender) => { /* ... */ });
-await client.SendMessageToPlayerAsync(targetId, new CustomMessage { Payload = "Hi" });
-```
 
 ## File transfer and large data
 
