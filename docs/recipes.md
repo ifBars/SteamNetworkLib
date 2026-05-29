@@ -2,6 +2,91 @@
 
 Short, focused examples for common tasks.
 
+## Optional Steam initialization with retry
+
+```csharp
+private SteamNetworkClient client = new SteamNetworkClient();
+private bool multiplayerAvailable;
+private float nextRetryAt;
+
+public override void OnUpdate()
+{
+    if (!multiplayerAvailable && Time.realtimeSinceStartup >= nextRetryAt)
+    {
+        if (client.TryInitialize(out var error))
+        {
+            multiplayerAvailable = true;
+            MelonLogger.Msg("Steam networking ready.");
+        }
+        else
+        {
+            nextRetryAt = Time.realtimeSinceStartup + 2f;
+            MelonLogger.Warning($"Steam networking not ready: {error?.Message}");
+        }
+    }
+
+    if (multiplayerAvailable)
+    {
+        client.ProcessIncomingMessages();
+    }
+}
+```
+
+Guard every networking path with `multiplayerAvailable`. Your local/single-player logic should still run when Steamworks is unavailable.
+
+## Find host and remote members
+
+```csharp
+if (client.TryGetHostMember(out var host))
+{
+    MelonLogger.Msg($"Host is {host.DisplayName} ({host.SteamId64})");
+}
+
+foreach (var member in client.GetRemoteMembers())
+{
+    MelonLogger.Msg($"Remote member {member.DisplayName}: {member.SteamIdString}");
+}
+```
+
+## Send a typed transaction message
+
+```csharp
+public class TransactionPayload
+{
+    public string TransactionId { get; set; } = string.Empty;
+    public string ItemId { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+}
+
+public class TransactionMessage : TypedP2PMessage<TransactionPayload>
+{
+    public override string MessageType => "MYMOD_TRANSACTION";
+
+    public TransactionMessage()
+    {
+    }
+
+    public TransactionMessage(TransactionPayload payload)
+        : base(payload)
+    {
+    }
+}
+
+client.RegisterMessageHandler<TransactionMessage>((message, sender) =>
+{
+    MelonLogger.Msg($"Received {message.Payload.TransactionId} from {sender.m_SteamID}");
+});
+
+await client.SendMessageToPlayerAsync(hostId, new TransactionMessage(new TransactionPayload
+{
+    TransactionId = Guid.NewGuid().ToString("N"),
+    ItemId = "pseudo",
+    Quantity = 10,
+    UnitPrice = 25m
+}));
+```
+
 ## Host-authoritative sync var
 
 ```csharp

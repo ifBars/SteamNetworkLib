@@ -7,6 +7,7 @@ using SteamNetworkLib.Models;
 using SteamNetworkLib.Utilities;
 using Steamworks;
 using Xunit;
+using System.Collections.Generic;
 
 namespace SteamNetworkLib.Tests.Unit
 {
@@ -80,6 +81,39 @@ namespace SteamNetworkLib.Tests.Unit
                 SenderId = deserialized.SenderId;
                 Timestamp = deserialized.Timestamp;
             }
+        }
+    }
+
+    public class TypedTransactionPayload
+    {
+        public string TransactionId { get; set; } = string.Empty;
+        public string ItemId { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public TypedSlotIdentifier Slot { get; set; } = new TypedSlotIdentifier();
+        public List<string> Tags { get; set; } = new List<string>();
+    }
+
+    public class TypedSlotIdentifier
+    {
+        public string Property { get; set; } = string.Empty;
+        public string Grid { get; set; } = string.Empty;
+        public int SlotIndex { get; set; }
+        public float[] GridLocation { get; set; } = Array.Empty<float>();
+    }
+
+    public class TypedTransactionMessage : TypedP2PMessage<TypedTransactionPayload>
+    {
+        public override string MessageType => "TRANSACTION_TYPED";
+
+        public TypedTransactionMessage()
+        {
+        }
+
+        public TypedTransactionMessage(TypedTransactionPayload payload)
+            : base(payload)
+        {
         }
     }
 
@@ -216,6 +250,122 @@ namespace SteamNetworkLib.Tests.Unit
 
             // Assert
             message.MessageType.Should().Be("PLAYER_ACTION");
+        }
+
+        #endregion
+
+        #region Typed Payload Message Tests
+
+        [Fact]
+        public void TypedP2PMessage_Serialize_SeparatesMetadataFromPayload()
+        {
+            var message = new TypedTransactionMessage(new TypedTransactionPayload
+            {
+                TransactionId = "txn-payload-1",
+                ItemId = "pseudo",
+                Quantity = 12,
+                UnitPrice = 42.5m,
+                CreatedAt = new DateTime(2026, 5, 28, 12, 30, 0, DateTimeKind.Utc),
+                Slot = new TypedSlotIdentifier
+                {
+                    Property = "Barn",
+                    Grid = "Grid_0",
+                    SlotIndex = 3,
+                    GridLocation = new[] { 1.5f, 2.25f }
+                },
+                Tags = new List<string> { "restock", "host-approved" }
+            })
+            {
+                SenderId = new CSteamID(76561197960265728),
+                Timestamp = new DateTime(2026, 5, 28, 12, 31, 0, DateTimeKind.Utc)
+            };
+
+            var json = System.Text.Encoding.UTF8.GetString(message.Serialize());
+
+            json.Should().Contain("\"SenderId\":76561197960265728");
+            json.Should().Contain("\"Payload\":{");
+            json.Should().Contain("\"TransactionId\":\"txn-payload-1\"");
+            json.Should().Contain("\"GridLocation\":[1.5,2.25]");
+            json.Should().Contain("\"Tags\":[\"restock\",\"host-approved\"]");
+        }
+
+        [Fact]
+        public void TypedP2PMessage_Deserialize_RestoresNestedPayloadAndMetadata()
+        {
+            var original = new TypedTransactionMessage(new TypedTransactionPayload
+            {
+                TransactionId = "txn-roundtrip",
+                ItemId = "cocaleaf",
+                Quantity = 5,
+                UnitPrice = 10.75m,
+                CreatedAt = new DateTime(2026, 5, 28, 8, 15, 30, DateTimeKind.Utc),
+                Slot = new TypedSlotIdentifier
+                {
+                    Property = "Warehouse",
+                    Grid = "Grid_A",
+                    SlotIndex = 7,
+                    GridLocation = new[] { -3.25f, 4.5f }
+                },
+                Tags = new List<string> { "remote", "storage" }
+            })
+            {
+                SenderId = new CSteamID(123456789),
+                Timestamp = new DateTime(2026, 5, 28, 8, 16, 0, DateTimeKind.Utc)
+            };
+
+            var restored = new TypedTransactionMessage();
+            restored.Deserialize(original.Serialize());
+
+            restored.SenderId.m_SteamID.Should().Be(123456789);
+            restored.Payload.TransactionId.Should().Be("txn-roundtrip");
+            restored.Payload.ItemId.Should().Be("cocaleaf");
+            restored.Payload.Quantity.Should().Be(5);
+            restored.Payload.UnitPrice.Should().Be(10.75m);
+            restored.Payload.CreatedAt.Should().Be(new DateTime(2026, 5, 28, 8, 15, 30, DateTimeKind.Utc));
+            restored.Payload.Slot.Property.Should().Be("Warehouse");
+            restored.Payload.Slot.GridLocation.Should().Equal(-3.25f, 4.5f);
+            restored.Payload.Tags.Should().Equal("remote", "storage");
+        }
+
+        [Fact]
+        public void MessageSerializer_CreateMessage_TypedPayloadMessage_RoundTrips()
+        {
+            var original = new TypedTransactionMessage(new TypedTransactionPayload
+            {
+                TransactionId = "txn-serializer",
+                ItemId = "soil",
+                Quantity = 24
+            });
+
+            var serialized = MessageSerializer.SerializeMessage(original);
+            var restored = MessageSerializer.CreateMessage<TypedTransactionMessage>(serialized);
+
+            MessageSerializer.GetMessageType(serialized).Should().Be("TRANSACTION_TYPED");
+            restored.Payload.TransactionId.Should().Be("txn-serializer");
+            restored.Payload.ItemId.Should().Be("soil");
+            restored.Payload.Quantity.Should().Be(24);
+        }
+
+        [Fact]
+        public void TypedP2PMessage_WithQuotedPayloadValues_RoundTrips()
+        {
+            var original = new TypedTransactionMessage(new TypedTransactionPayload
+            {
+                TransactionId = "txn-quoted",
+                ItemId = "item \"with quotes\"",
+                Slot = new TypedSlotIdentifier
+                {
+                    Property = "Main\nProperty",
+                    Grid = "Grid\\Back"
+                }
+            });
+
+            var restored = new TypedTransactionMessage();
+            restored.Deserialize(original.Serialize());
+
+            restored.Payload.ItemId.Should().Be("item \"with quotes\"");
+            restored.Payload.Slot.Property.Should().Be("Main\nProperty");
+            restored.Payload.Slot.Grid.Should().Be("Grid\\Back");
         }
 
         #endregion

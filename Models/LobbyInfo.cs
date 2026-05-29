@@ -20,10 +20,29 @@ namespace SteamNetworkLib.Models
         public CSteamID LobbyId { get; set; }
 
         /// <summary>
+        /// Gets or sets the lobby Steam ID as a 64-bit integer.
+        /// This is often easier to store, compare, serialize, or log than the runtime-specific Steamworks type.
+        /// </summary>
+        public ulong LobbyId64
+        {
+            get => LobbyId.m_SteamID;
+            set => LobbyId = new CSteamID(value);
+        }
+
+        /// <summary>
         /// Gets or sets the Steam ID of the lobby owner (host).
         /// The owner has special privileges like changing lobby settings and kicking members.
         /// </summary>
         public CSteamID OwnerId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the lobby owner Steam ID as a 64-bit integer.
+        /// </summary>
+        public ulong OwnerId64
+        {
+            get => OwnerId.m_SteamID;
+            set => OwnerId = new CSteamID(value);
+        }
 
         /// <summary>
         /// Gets or sets the current number of members in the lobby.

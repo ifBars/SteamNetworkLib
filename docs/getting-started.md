@@ -55,48 +55,124 @@ If your mod has separate Mono and Il2Cpp configurations, reference the downloade
 </ItemGroup>
 ```
 
+## When to initialize
+
+SteamNetworkLib requires the game process to have Steamworks attached and initialized. In Schedule One mods, that is not always true during `OnInitializeMelon()`, and it is common for users to launch in a way where Steamworks is unavailable. Treat networking as an optional capability until initialization succeeds.
+
+Recommended lifecycle:
+
+- Create the `SteamNetworkClient` in `OnInitializeMelon()` or when your network feature starts.
+- Attempt initialization after the menu or first relevant scene has loaded, then retry on a short timer if Steamworks is not ready.
+- Keep your mod's single-player/local behavior working when initialization fails.
+- Call `ProcessIncomingMessages()` every frame only after the client is initialized.
+- Dispose the client in `OnDeinitializeMelon()`.
+
+Use `TryInitialize()` for normal consumer mods. Use `Initialize()` only when networking is mandatory and a thrown exception should fail the feature immediately.
+
 ## Minimal mod setup
 
 ```csharp
 using MelonLoader;
 using SteamNetworkLib;
+using SteamNetworkLib.Core;
+using SteamNetworkLib.Exceptions;
+using UnityEngine;
 
 public class YourAwesomeModMain : MelonMod
 {
     private SteamNetworkClient client;
+    private float nextNetworkInitAttempt;
+    private bool multiplayerAvailable;
 
     public override void OnInitializeMelon()
     {
         // Optional: configure network rules (relay, session policy, channels)
-        var rules = new SteamNetworkLib.Core.NetworkRules
+        var rules = new NetworkRules
         {
             EnableRelay = true,
             AcceptOnlyFriends = false
         };
 
         client = new SteamNetworkClient(rules);
-        if (client.Initialize())
+    }
+
+    public override void OnSceneWasInitialized(int buildIndex, string sceneName)
+    {
+        if (sceneName == "Menu")
         {
-            // Optional: subscribe to events
-            client.OnLobbyCreated += (s, e) => MelonLogger.Msg($"Lobby: {e.Lobby.LobbyId}");
+            TryInitializeNetworking();
         }
     }
 
     public override void OnUpdate()
     {
-        client?.ProcessIncomingMessages();
+        if (!multiplayerAvailable && Time.realtimeSinceStartup >= nextNetworkInitAttempt)
+        {
+            TryInitializeNetworking();
+        }
+
+        if (multiplayerAvailable)
+        {
+            client.ProcessIncomingMessages();
+        }
     }
 
     public override void OnDeinitializeMelon()
     {
         client?.Dispose();
     }
+
+    private void TryInitializeNetworking()
+    {
+        if (client.IsInitialized)
+        {
+            multiplayerAvailable = true;
+            return;
+        }
+
+        if (client.TryInitialize(out var error))
+        {
+            multiplayerAvailable = true;
+            client.OnLobbyCreated += (s, e) => MelonLogger.Msg($"Lobby: {e.Lobby.LobbyId64}");
+            MelonLogger.Msg("SteamNetworkLib initialized.");
+            return;
+        }
+
+        multiplayerAvailable = false;
+        nextNetworkInitAttempt = Time.realtimeSinceStartup + 2f;
+        MelonLogger.Warning($"Steam networking unavailable, retrying later: {error?.Message}");
+    }
 }
 ```
+
+If multiplayer is optional, guard every sync/send path with your own `multiplayerAvailable` flag and keep local logic active. Do not call lobby, member data, SyncVar, or P2P methods before initialization succeeds.
+
+## Working with Steam IDs
+
+SteamNetworkLib still exposes the native `CSteamID` for Steamworks interop, but common identity lookups also have runtime-neutral helpers:
+
+```csharp
+if (client.TryGetHostMember(out var host))
+{
+    MelonLogger.Msg($"Host: {host.DisplayName} ({host.SteamId64})");
+}
+
+ulong localPlayer = client.LocalPlayerId64;
+ulong hostPlayer = client.HostPlayerId64;
+
+foreach (var member in client.GetRemoteMembers())
+{
+    MelonLogger.Msg($"Remote member: {member.DisplayName} ({member.SteamIdString})");
+}
+```
+
+Prefer the `ulong` properties for config files, JSON payloads, dictionaries, and logs. Convert back to `CSteamID` only when you call an API that requires the Steamworks type.
 
 ## Best Practices
 
 - **Use unique prefixes** for your mod's data keys to avoid collisions with other mods. See [Data Synchronization](data-synchronization.md#important-use-unique-prefixes) for details.
+- **Fail open for optional multiplayer**. If Steamworks is unavailable, log once or retry quietly and keep single-player behavior working.
+- **Retry instead of crashing** when Steamworks is not ready. `TryInitialize()` is intended for this path.
 
 From here, pick the guide you need next:
 

@@ -21,9 +21,81 @@ await client.BroadcastMessageAsync(new TextMessage { Content = "Welcome!" });
 client.ProcessIncomingMessages();
 ```
 
-## Sending custom messages
+## Sending typed payload messages
+
+For most custom mod messages, prefer `TypedP2PMessage<TPayload>`. It keeps SteamNetworkLib metadata (`SenderId`, `Timestamp`) outside your payload and uses the same IL2CPP-compatible JSON serializer as SyncVars. Your payload should be a simple DTO with a public parameterless constructor and public get/set properties.
+
+This is the recommended shape for transaction/state messages like AutoRestock restock operations, vehicle sync requests, label changes, or host-authored config deltas.
+
+### Step 1: Define a payload DTO
+
+```csharp
+using SteamNetworkLib.Models;
+
+public class RestockTransactionPayload
+{
+    public string TransactionId { get; set; } = string.Empty;
+    public string ItemId { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+    public SlotIdentifier Slot { get; set; } = new SlotIdentifier();
+}
+
+public class SlotIdentifier
+{
+    public string Property { get; set; } = string.Empty;
+    public string Grid { get; set; } = string.Empty;
+    public int SlotIndex { get; set; }
+    public float[] GridLocation { get; set; } = Array.Empty<float>();
+}
+```
+
+### Step 2: Define the message type
+
+```csharp
+public class RestockTransactionMessage : TypedP2PMessage<RestockTransactionPayload>
+{
+    public override string MessageType => "MYMOD_RESTOCK_TRANSACTION";
+
+    public RestockTransactionMessage()
+    {
+    }
+
+    public RestockTransactionMessage(RestockTransactionPayload payload)
+        : base(payload)
+    {
+    }
+}
+```
+
+### Step 3: Register and send it
+
+```csharp
+client.RegisterMessageHandler<RestockTransactionMessage>((message, sender) =>
+{
+    RestockTransactionPayload payload = message.Payload;
+    MelonLogger.Msg($"Restock request {payload.TransactionId} from {sender.m_SteamID}");
+    ProcessRestock(payload);
+});
+
+await client.SendMessageToPlayerAsync(hostId, new RestockTransactionMessage(
+    new RestockTransactionPayload
+    {
+        TransactionId = Guid.NewGuid().ToString("N"),
+        ItemId = "pseudo",
+        Quantity = 20,
+        UnitPrice = 42.5m,
+        Slot = currentSlotIdentifier
+    }));
+```
+
+Do not put `CSteamID`, Unity objects, game objects, item instances, or slot references directly in the payload. Send stable IDs, primitive values, arrays/lists/dictionaries, and small nested DTOs, then resolve game objects locally when the message is handled.
+
+## Sending custom messages manually
 
 Create a type by inheriting `P2PMessage` and implement `MessageType`, `Serialize`, `Deserialize`.
+
+Use this lower-level path only when you need a custom binary format, compression, encryption, or a serializer not covered by `TypedP2PMessage<TPayload>`.
 
 ### Step 1: Define your custom message class
 
@@ -71,10 +143,14 @@ public class TransactionMessage : P2PMessage
 public override void OnInitializeMelon()
 {
     client = new SteamNetworkClient();
-    if (client.Initialize())
+    if (client.TryInitialize())
     {
         // Register handler - this automatically registers the custom type
         client.RegisterMessageHandler<TransactionMessage>(OnTransactionReceived);
+    }
+    else
+    {
+        // Keep local behavior active and retry initialization later.
     }
 }
 

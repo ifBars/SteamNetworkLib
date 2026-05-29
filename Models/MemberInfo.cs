@@ -20,6 +20,21 @@ namespace SteamNetworkLib.Models
         public CSteamID SteamId { get; set; }
 
         /// <summary>
+        /// Gets or sets the member Steam ID as a 64-bit integer.
+        /// This is often easier to store, compare, serialize, or log than the runtime-specific Steamworks type.
+        /// </summary>
+        public ulong SteamId64
+        {
+            get => SteamId.m_SteamID;
+            set => SteamId = new CSteamID(value);
+        }
+
+        /// <summary>
+        /// Gets the member Steam ID as an invariant decimal string.
+        /// </summary>
+        public string SteamIdString => SteamId.m_SteamID.ToString();
+
+        /// <summary>
         /// Gets or sets the display name of the member as shown in Steam.
         /// This is the human-readable name that other players will see.
         /// </summary>

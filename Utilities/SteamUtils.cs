@@ -21,7 +21,13 @@ namespace SteamNetworkLib.Utilities
         {
             try
             {
-                return SteamAPI.IsSteamRunning();
+                if (!SteamAPI.IsSteamRunning())
+                {
+                    return false;
+                }
+
+                var steamId = SteamUser.GetSteamID();
+                return steamId != CSteamID.Nil && steamId.m_SteamID != 0;
             }
             catch
             {

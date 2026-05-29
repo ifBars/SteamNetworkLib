@@ -22,7 +22,9 @@ A streamlined, object-oriented Steam networking library designed specifically fo
 - **Custom message support** via inheritance
 
 ### **🔧 MelonLoader Optimized**
-- **No complex setup** - just initialize and go
+- **Safe delayed initialization** with `TryInitialize()` for Steamworks-not-ready launches
+- **Single-player fallback friendly** when Steam networking is unavailable
+- **Simplified Steam ID helpers** for common host/local/remote member lookups
 - **Automatic resource cleanup** on dispose
 - **Mod compatibility checking** (like BetterJukebox track manifests)
 - **Error handling** that won't crash your mod

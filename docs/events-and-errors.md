@@ -48,6 +48,25 @@ catch (SteamNetworkException ex)
 }
 ```
 
+## Initialization failures
+
+`Initialize()` throws a `SteamNetworkException` when Steamworks is not available. That usually means Steam is not running, the game was launched outside Steam, SteamAPI has not initialized yet, or another loader/runtime problem prevented Steamworks from attaching to the process.
+
+For consumer mods, prefer `TryInitialize()` and retry later:
+
+```csharp
+if (!client.TryInitialize(out var error))
+{
+    MelonLogger.Warning($"Steam networking unavailable: {error?.Message}");
+    multiplayerAvailable = false;
+    return;
+}
+
+multiplayerAvailable = true;
+```
+
+Do not treat a failed initialization as a reason to disable the whole mod unless networking is the mod's only feature. Keep local behavior active, skip calls to SyncVars/P2P/lobby data, and retry after the menu or main scene has loaded.
+
 ## IL2CPP specifics
 
 `client.ProcessIncomingMessages()` internally calls `SteamAPI.RunCallbacks()` on IL2CPP, which is required to drive Steam callbacks. Ensure you call it every frame (e.g., `OnUpdate`).

@@ -128,19 +128,8 @@ namespace SteamNetworkLib.Models
         {
             try
             {
-                var keyPattern = $"\"{key}\":";
-                var startIndex = json.IndexOf(keyPattern);
-                if (startIndex == -1)
-                {
-                    return string.Empty;
-                }
-
-                startIndex += keyPattern.Length;
-
-                while (startIndex < json.Length && char.IsWhiteSpace(json[startIndex]))
-                    startIndex++;
-
-                if (startIndex >= json.Length)
+                var startIndex = FindJsonValueStart(json, key);
+                if (startIndex < 0)
                 {
                     return string.Empty;
                 }
@@ -212,6 +201,116 @@ namespace SteamNetworkLib.Models
                 Console.WriteLine($"[SteamNetworkLib] P2PMessage.ExtractJsonValue Stack Trace: {ex.StackTrace}");
                 return string.Empty;
             }
+        }
+
+        /// <summary>
+        /// Extracts the raw JSON value for a key without unescaping or trimming nested content.
+        /// </summary>
+        /// <param name="json">The JSON string to extract the value from.</param>
+        /// <param name="key">The key of the value to extract.</param>
+        /// <returns>The raw JSON value, or an empty string if not found.</returns>
+        protected string ExtractJsonRawValue(string json, string key)
+        {
+            try
+            {
+                var startIndex = FindJsonValueStart(json, key);
+                if (startIndex < 0 || startIndex >= json.Length)
+                {
+                    return string.Empty;
+                }
+
+                int endIndex = FindJsonValueEnd(json, startIndex);
+                if (endIndex <= startIndex)
+                {
+                    return string.Empty;
+                }
+
+                return json.Substring(startIndex, endIndex - startIndex).Trim();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SteamNetworkLib] P2PMessage.ExtractJsonRawValue ERROR: {ex.Message}");
+                Console.WriteLine($"[SteamNetworkLib] P2PMessage.ExtractJsonRawValue Stack Trace: {ex.StackTrace}");
+                return string.Empty;
+            }
+        }
+
+        private static int FindJsonValueStart(string json, string key)
+        {
+            var keyPattern = $"\"{key}\":";
+            var startIndex = json.IndexOf(keyPattern);
+            if (startIndex == -1)
+            {
+                return -1;
+            }
+
+            startIndex += keyPattern.Length;
+
+            while (startIndex < json.Length && char.IsWhiteSpace(json[startIndex]))
+            {
+                startIndex++;
+            }
+
+            return startIndex >= json.Length ? -1 : startIndex;
+        }
+
+        private static int FindJsonValueEnd(string json, int startIndex)
+        {
+            bool inString = false;
+            bool escaped = false;
+            int depth = 0;
+
+            for (int i = startIndex; i < json.Length; i++)
+            {
+                char c = json[i];
+
+                if (escaped)
+                {
+                    escaped = false;
+                    continue;
+                }
+
+                if (c == '\\')
+                {
+                    escaped = true;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    inString = !inString;
+                    continue;
+                }
+
+                if (inString)
+                {
+                    continue;
+                }
+
+                if (c == '{' || c == '[')
+                {
+                    depth++;
+                    continue;
+                }
+
+                if (c == '}' || c == ']')
+                {
+                    if (depth == 0)
+                    {
+                        return i;
+                    }
+
+                    depth--;
+                    continue;
+                }
+
+                if (c == ',' && depth == 0)
+                {
+                    return i;
+                }
+            }
+
+            return json.Length;
         }
     }
 }

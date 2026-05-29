@@ -131,7 +131,8 @@ namespace SteamNetworkLib.Sync
                 type == typeof(float) || type == typeof(double) ||
                 type == typeof(bool) || type == typeof(byte) ||
                 type == typeof(short) || type == typeof(uint) ||
-                type == typeof(ulong) || type == typeof(decimal))
+                type == typeof(ulong) || type == typeof(decimal) ||
+                type == typeof(DateTime) || type == typeof(Guid))
             {
                 return true;
             }
@@ -241,6 +242,14 @@ namespace SteamNetworkLib.Sync
             if (type == typeof(decimal))
             {
                 return ((decimal)value).ToString(CultureInfo.InvariantCulture);
+            }
+            if (type == typeof(DateTime))
+            {
+                return EscapeString(((DateTime)value).ToString("O", CultureInfo.InvariantCulture));
+            }
+            if (type == typeof(Guid))
+            {
+                return EscapeString(((Guid)value).ToString("D"));
             }
 
             // Enums - serialize as integer
@@ -389,6 +398,14 @@ namespace SteamNetworkLib.Sync
             if (type == typeof(decimal))
             {
                 return decimal.Parse(json, CultureInfo.InvariantCulture);
+            }
+            if (type == typeof(DateTime))
+            {
+                return DateTime.Parse(UnescapeString(json), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+            }
+            if (type == typeof(Guid))
+            {
+                return Guid.Parse(UnescapeString(json));
             }
 
             // Enums

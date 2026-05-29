@@ -83,6 +83,15 @@ namespace SteamNetworkLib
         }
 
         /// <summary>
+        /// Gets whether this client has successfully initialized Steam networking.
+        /// </summary>
+        /// <remarks>
+        /// Use this before calling networking methods when initialization is delayed until
+        /// Steamworks is attached to the game process.
+        /// </remarks>
+        public bool IsInitialized => _isInitialized;
+
+        /// <summary>
         /// Occurs when a version mismatch is detected between players in the lobby.
         /// </summary>
         /// <remarks>
@@ -158,6 +167,16 @@ namespace SteamNetworkLib
                 return LobbyManager?.LocalPlayerID ?? CSteamID.Nil;
             }
         }
+
+        /// <summary>
+        /// Gets the 64-bit Steam ID of the local player, or 0 when unavailable.
+        /// </summary>
+        public ulong LocalPlayerId64 => LocalPlayerId.m_SteamID;
+
+        /// <summary>
+        /// Gets the 64-bit Steam ID of the current host, or 0 when not in a lobby/session.
+        /// </summary>
+        public ulong HostPlayerId64 => CurrentLobby?.OwnerId.m_SteamID ?? 0UL;
 
         /// <summary>
         /// Gets information about the current lobby, or null if not in a lobby.
@@ -309,6 +328,44 @@ namespace SteamNetworkLib
             }
         }
 
+        /// <summary>
+        /// Attempts to initialize Steam networking without throwing when Steamworks is unavailable.
+        /// </summary>
+        /// <returns>True when initialization succeeded; otherwise, false.</returns>
+        /// <remarks>
+        /// This is the preferred path for consumer mods that can run in single-player mode or
+        /// retry initialization after Steamworks attaches to the game process.
+        /// </remarks>
+        public bool TryInitialize()
+        {
+            return TryInitialize(out _);
+        }
+
+        /// <summary>
+        /// Attempts to initialize Steam networking without throwing when Steamworks is unavailable.
+        /// </summary>
+        /// <param name="error">The initialization error, or null when initialization succeeded.</param>
+        /// <returns>True when initialization succeeded; otherwise, false.</returns>
+        public bool TryInitialize(out SteamNetworkException? error)
+        {
+            try
+            {
+                Initialize();
+                error = null;
+                return true;
+            }
+            catch (SteamNetworkException ex)
+            {
+                error = ex;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                error = new SteamNetworkException($"Failed to initialize SteamNetworkClient: {ex.Message}", ex);
+                return false;
+            }
+        }
+
         #region Lobby Management
 
         /// <summary>
@@ -379,6 +436,77 @@ namespace SteamNetworkLib
             }
 
             return LobbyManager.GetLobbyMembers();
+        }
+
+        /// <summary>
+        /// Gets all non-local members in the current lobby/session.
+        /// </summary>
+        /// <returns>A list of remote lobby members. Returns an empty list when there are no remote members.</returns>
+        public List<MemberInfo> GetRemoteMembers()
+        {
+            return GetLobbyMembers()
+                .Where(member => !member.IsLocalPlayer)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Gets the current host member, or null when no host can be identified.
+        /// </summary>
+        public MemberInfo? GetHostMember()
+        {
+            return GetLobbyMembers().FirstOrDefault(member => member.IsOwner);
+        }
+
+        /// <summary>
+        /// Attempts to get the current host member.
+        /// </summary>
+        /// <param name="host">The host member when found; otherwise, null.</param>
+        /// <returns>True when a host member was found.</returns>
+        public bool TryGetHostMember(out MemberInfo? host)
+        {
+            host = GetHostMember();
+            return host != null;
+        }
+
+        /// <summary>
+        /// Gets the local member entry, or null when it cannot be found.
+        /// </summary>
+        public MemberInfo? GetLocalMember()
+        {
+            return GetLobbyMembers().FirstOrDefault(member => member.IsLocalPlayer);
+        }
+
+        /// <summary>
+        /// Attempts to get the local member entry.
+        /// </summary>
+        /// <param name="localMember">The local member when found; otherwise, null.</param>
+        /// <returns>True when the local member was found.</returns>
+        public bool TryGetLocalMember(out MemberInfo? localMember)
+        {
+            localMember = GetLocalMember();
+            return localMember != null;
+        }
+
+        /// <summary>
+        /// Gets a lobby member by their 64-bit Steam ID.
+        /// </summary>
+        /// <param name="steamId64">The 64-bit Steam ID to find.</param>
+        /// <returns>The matching member, or null when no member matches.</returns>
+        public MemberInfo? GetMember(ulong steamId64)
+        {
+            return GetLobbyMembers().FirstOrDefault(member => member.SteamId.m_SteamID == steamId64);
+        }
+
+        /// <summary>
+        /// Attempts to get a lobby member by their 64-bit Steam ID.
+        /// </summary>
+        /// <param name="steamId64">The 64-bit Steam ID to find.</param>
+        /// <param name="member">The matching member when found; otherwise, null.</param>
+        /// <returns>True when a matching member was found.</returns>
+        public bool TryGetMember(ulong steamId64, out MemberInfo? member)
+        {
+            member = GetMember(steamId64);
+            return member != null;
         }
 
         /// <summary>

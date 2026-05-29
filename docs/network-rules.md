@@ -14,7 +14,11 @@ var rules = new NetworkRules
 };
 
 var client = new SteamNetworkClient(rules);
-client.Initialize();
+if (!client.TryInitialize())
+{
+    // Steamworks is not ready or unavailable. Retry later if multiplayer is optional.
+    return;
+}
 ```
 
 ## Message Policy
@@ -41,4 +45,3 @@ For IL2CPP builds, incoming packet polling scans a channel range:
 - `MaxReceiveChannel` (default 3)
 
 Tune these if you segment traffic across channels.
-
