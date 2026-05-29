@@ -1,4 +1,5 @@
 using System;
+using SteamNetworkLib.Exceptions;
 
 namespace SteamNetworkLib.Sync
 {
@@ -14,13 +15,8 @@ namespace SteamNetworkLib.Sync
     /// </list>
     /// <para>This exception provides information about the invalid value and the associated sync key when available.</para>
     /// </remarks>
-    public class SyncValidationException : Exception
+    public class SyncValidationException : SteamNetworkLib.Exceptions.SyncException
     {
-        /// <summary>
-        /// Gets the key associated with the sync operation, if available.
-        /// </summary>
-        public string? SyncKey { get; }
-
         /// <summary>
         /// Gets the invalid value, if available.
         /// </summary>
@@ -31,7 +27,7 @@ namespace SteamNetworkLib.Sync
         /// </summary>
         /// <param name="message">The error message.</param>
         public SyncValidationException(string message) 
-            : base(message)
+            : base(message, syncKey: null, SteamNetworkErrorKind.ValidationFailed)
         {
         }
 
@@ -42,9 +38,8 @@ namespace SteamNetworkLib.Sync
         /// <param name="syncKey">The sync key associated with the operation.</param>
         /// <param name="invalidValue">The value that failed validation.</param>
         public SyncValidationException(string message, string syncKey, object? invalidValue) 
-            : base(message)
+            : base(message, syncKey, SteamNetworkErrorKind.ValidationFailed)
         {
-            SyncKey = syncKey;
             InvalidValue = invalidValue;
         }
     }

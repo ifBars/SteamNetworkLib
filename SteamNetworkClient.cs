@@ -324,7 +324,11 @@ namespace SteamNetworkLib
             {
                 if (!SteamNetworkUtils.IsSteamInitialized())
                 {
-                    throw new SteamNetworkException("Steam is not initialized. Make sure Steam is running and SteamAPI.Init() was called.");
+                    throw new SteamNetworkException(
+                        "Steam is not initialized. Make sure Steam is running and SteamAPI.Init() was called.",
+                        SteamNetworkErrorKind.SteamUnavailable,
+                        operation: nameof(Initialize),
+                        isRetryable: true);
                 }
 
                 LobbyManager = new SteamLobbyManager();
@@ -341,7 +345,12 @@ namespace SteamNetworkLib
             }
             catch (Exception ex)
             {
-                throw new SteamNetworkException($"Failed to initialize SteamNetworkClient: {ex.Message}", ex);
+                throw new SteamNetworkException(
+                    $"Failed to initialize SteamNetworkClient: {ex.Message}",
+                    ex,
+                    ex is SteamNetworkException steamEx ? steamEx.ErrorKind : SteamNetworkErrorKind.SteamUnavailable,
+                    operation: nameof(Initialize),
+                    isRetryable: true);
             }
         }
 
@@ -392,7 +401,12 @@ namespace SteamNetworkLib
             }
             catch (Exception ex)
             {
-                error = new SteamNetworkException($"Failed to initialize SteamNetworkClient: {ex.Message}", ex);
+                error = new SteamNetworkException(
+                    $"Failed to initialize SteamNetworkClient: {ex.Message}",
+                    ex,
+                    SteamNetworkErrorKind.SteamUnavailable,
+                    operation: nameof(TryInitialize),
+                    isRetryable: true);
                 return false;
             }
         }

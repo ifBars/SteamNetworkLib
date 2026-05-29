@@ -63,7 +63,12 @@ namespace SteamNetworkLib.Core
 
             if (!_lobbyManager.IsInLobby)
             {
-                throw new LobbyException("Cannot set lobby data - not in a lobby");
+                throw new LobbyException(
+                    "Cannot set lobby data - not in a lobby",
+                    SteamNetworkErrorKind.NotInLobby,
+                    operation: nameof(SetData),
+                    dataKey: key,
+                    isRetryable: true);
             }
 
             var lobbyId = _lobbyManager.CurrentLobby!.LobbyId;
@@ -72,7 +77,13 @@ namespace SteamNetworkLib.Core
             bool success = SteamMatchmaking.SetLobbyData(lobbyId, key, value);
             if (!success)
             {
-                throw new LobbyException($"Failed to set lobby data for key: {key}");
+                throw new LobbyException(
+                    $"Failed to set lobby data for key: {key}",
+                    SteamNetworkErrorKind.LobbyDataFailed,
+                    operation: nameof(SetData),
+                    lobbyId: lobbyId,
+                    dataKey: key,
+                    requiresHost: true);
             }
 
             // Update cache
@@ -133,7 +144,12 @@ namespace SteamNetworkLib.Core
 
             if (!_lobbyManager.IsInLobby)
             {
-                throw new LobbyException("Cannot remove lobby data - not in a lobby");
+                throw new LobbyException(
+                    "Cannot remove lobby data - not in a lobby",
+                    SteamNetworkErrorKind.NotInLobby,
+                    operation: nameof(RemoveData),
+                    dataKey: key,
+                    isRetryable: true);
             }
 
             var oldValue = GetData(key);
@@ -144,7 +160,13 @@ namespace SteamNetworkLib.Core
 
             if (!success)
             {
-                throw new LobbyException($"Failed to remove lobby data for key: {key}");
+                throw new LobbyException(
+                    $"Failed to remove lobby data for key: {key}",
+                    SteamNetworkErrorKind.LobbyDataFailed,
+                    operation: nameof(RemoveData),
+                    lobbyId: lobbyId,
+                    dataKey: key,
+                    requiresHost: true);
             }
 
             // Update cache
@@ -196,12 +218,21 @@ namespace SteamNetworkLib.Core
         {
             if (!_lobbyManager.IsInLobby)
             {
-                throw new LobbyException("Cannot clear lobby data - not in a lobby");
+                throw new LobbyException(
+                    "Cannot clear lobby data - not in a lobby",
+                    SteamNetworkErrorKind.NotInLobby,
+                    operation: nameof(ClearAllData),
+                    isRetryable: true);
             }
 
             if (!_lobbyManager.IsHost)
             {
-                throw new LobbyException("Only the lobby host can clear all lobby data");
+                throw new LobbyException(
+                    "Only the lobby host can clear all lobby data",
+                    SteamNetworkErrorKind.PermissionDenied,
+                    operation: nameof(ClearAllData),
+                    lobbyId: _lobbyManager.CurrentLobby?.LobbyId,
+                    requiresHost: true);
             }
 
             var allData = GetAllData();
@@ -222,7 +253,11 @@ namespace SteamNetworkLib.Core
 
             if (!_lobbyManager.IsInLobby)
             {
-                throw new LobbyException("Cannot set lobby data - not in a lobby");
+                throw new LobbyException(
+                    "Cannot set lobby data - not in a lobby",
+                    SteamNetworkErrorKind.NotInLobby,
+                    operation: nameof(SetDataBatch),
+                    isRetryable: true);
             }
 
             // Set all data in batch
@@ -234,7 +269,14 @@ namespace SteamNetworkLib.Core
                 }
                 catch (Exception ex)
                 {
-                    throw new LobbyException($"Failed to set data for key '{kvp.Key}': {ex.Message}", ex);
+                    throw new LobbyException(
+                        $"Failed to set data for key '{kvp.Key}': {ex.Message}",
+                        ex,
+                        SteamNetworkErrorKind.LobbyDataFailed,
+                        operation: nameof(SetDataBatch),
+                        lobbyId: _lobbyManager.CurrentLobby?.LobbyId,
+                        dataKey: kvp.Key,
+                        requiresHost: true);
                 }
             }
         }

@@ -32,6 +32,15 @@ Advanced P2P events exist on `SteamP2PManager` (packet-level and session events)
 - `SteamNetworkException`: Base exception for library errors.
 - `LobbyException`: Lobby-specific failures (creation, join, invalid IDs).
 - `P2PException`: P2P send/receive/session issues (target, channel, session error).
+- `SyncException`: SyncVar and Steam data synchronization failures. `SyncSerializationException` and `SyncValidationException` also derive from this family.
+
+All SteamNetworkLib exceptions expose structured diagnostics:
+
+- `ErrorKind`: broad failure reason, such as `SteamUnavailable`, `NotInLobby`, `InvalidSteamId`, `PacketTooLarge`, `SerializationFailed`, `ValidationFailed`, or `MessageFormatInvalid`.
+- `Operation`: API operation or lifecycle step that failed, when available.
+- `IsRetryable`: whether retrying later may succeed.
+
+Specialized exceptions include additional context. `LobbyException` can expose `LobbyId64`, `MemberId64`, `DataKey`, `SteamResult`, and `RequiresHost`. `P2PException` can expose `TargetId64`, `MessageType`, `PacketSize`, `MaxPacketSize`, `Channel`, and `SessionError`. `SyncException` exposes `SyncKey`.
 
 ```csharp
 try
@@ -40,11 +49,15 @@ try
 }
 catch (LobbyException ex)
 {
-    MelonLogger.Error($"Lobby error: {ex.Message}");
+    MelonLogger.Error($"Lobby error in {ex.Operation}: {ex.Message} ({ex.ErrorKind})");
+    if (!string.IsNullOrEmpty(ex.DataKey))
+    {
+        MelonLogger.Error($"Data key: {ex.DataKey}");
+    }
 }
 catch (SteamNetworkException ex)
 {
-    MelonLogger.Error($"Steam error: {ex.Message}");
+    MelonLogger.Error($"Steam error in {ex.Operation}: {ex.Message} ({ex.ErrorKind})");
 }
 ```
 
@@ -57,7 +70,7 @@ For consumer mods, prefer `TryInitialize()` and retry later:
 ```csharp
 if (!client.TryInitialize(out var error))
 {
-    MelonLogger.Warning($"Steam networking unavailable: {error?.Message}");
+    MelonLogger.Warning($"Steam networking unavailable: {error?.Message} ({error?.ErrorKind})");
     multiplayerAvailable = false;
     return;
 }

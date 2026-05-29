@@ -245,7 +245,11 @@ namespace SteamNetworkLib.Core
         {
             if (!SteamNetworkUtils.IsSteamInitialized())
             {
-                throw new SteamNetworkException("Steam is not initialized. Make sure Steam is running and SteamAPI.Init() was called.");
+                throw new SteamNetworkException(
+                    "Steam is not initialized. Make sure Steam is running and SteamAPI.Init() was called.",
+                    SteamNetworkErrorKind.SteamUnavailable,
+                    operation: nameof(InitializeSteam),
+                    isRetryable: true);
             }
 
             LocalPlayerID = SteamUser.GetSteamID();

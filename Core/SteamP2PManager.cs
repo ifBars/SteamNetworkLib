@@ -133,12 +133,25 @@ namespace SteamNetworkLib.Core
         {
             if (!IsActive)
             {
-                throw new P2PException("P2P manager is not active");
+                throw new P2PException(
+                    "P2P manager is not active",
+                    SteamNetworkErrorKind.NotInitialized,
+                    operation: nameof(SendMessageAsync),
+                    targetId: targetId,
+                    channel: channel,
+                    messageType: message.MessageType,
+                    isRetryable: true);
             }
 
             if (!SteamNetworkUtils.IsValidSteamID(targetId))
             {
-                throw new P2PException("Invalid target Steam ID", targetId);
+                throw new P2PException(
+                    "Invalid target Steam ID",
+                    SteamNetworkErrorKind.InvalidSteamId,
+                    operation: nameof(SendMessageAsync),
+                    targetId: targetId,
+                    channel: channel,
+                    messageType: message.MessageType);
             }
 
             try
@@ -161,9 +174,20 @@ namespace SteamNetworkLib.Core
 
                 return await SendPacketAsync(targetId, messageData, channel, sendType);
             }
+            catch (P2PException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
-                throw new P2PException($"Failed to send message: {ex.Message}", ex);
+                throw new P2PException(
+                    $"Failed to send message: {ex.Message}",
+                    ex,
+                    SteamNetworkErrorKind.SerializationFailed,
+                    operation: nameof(SendMessageAsync),
+                    targetId: targetId,
+                    channel: channel,
+                    messageType: message.MessageType);
             }
         }
 
@@ -180,18 +204,38 @@ namespace SteamNetworkLib.Core
         {
             if (!IsActive)
             {
-                throw new P2PException("P2P manager is not active");
+                throw new P2PException(
+                    "P2P manager is not active",
+                    SteamNetworkErrorKind.NotInitialized,
+                    operation: nameof(SendPacketAsync),
+                    targetId: targetId,
+                    channel: channel,
+                    packetSize: data.Length,
+                    isRetryable: true);
             }
 
             if (!SteamNetworkUtils.IsValidSteamID(targetId))
             {
-                throw new P2PException("Invalid target Steam ID", targetId);
+                throw new P2PException(
+                    "Invalid target Steam ID",
+                    SteamNetworkErrorKind.InvalidSteamId,
+                    operation: nameof(SendPacketAsync),
+                    targetId: targetId,
+                    channel: channel,
+                    packetSize: data.Length);
             }
 
             var maxPacketSize = SteamP2PLimits.GetMaxPacketSize(sendType);
             if (data.Length > maxPacketSize)
             {
-                throw new P2PException($"Packet too large for {sendType}: {data.Length} bytes (max: {maxPacketSize})", targetId);
+                throw new P2PException(
+                    $"Packet too large for {sendType}: {data.Length} bytes (max: {maxPacketSize})",
+                    SteamNetworkErrorKind.PacketTooLarge,
+                    operation: nameof(SendPacketAsync),
+                    targetId: targetId,
+                    channel: channel,
+                    packetSize: data.Length,
+                    maxPacketSize: maxPacketSize);
             }
 
             try
@@ -246,9 +290,21 @@ namespace SteamNetworkLib.Core
                 return success;
 #endif
             }
+            catch (P2PException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
-                throw new P2PException($"Failed to send packet: {ex.Message}", ex);
+                throw new P2PException(
+                    $"Failed to send packet: {ex.Message}",
+                    ex,
+                    SteamNetworkErrorKind.SessionFailed,
+                    operation: nameof(SendPacketAsync),
+                    targetId: targetId,
+                    channel: channel,
+                    packetSize: data.Length,
+                    isRetryable: true);
             }
         }
 
@@ -622,7 +678,11 @@ namespace SteamNetworkLib.Core
         {
             if (!SteamNetworkUtils.IsSteamInitialized())
             {
-                throw new SteamNetworkException("Steam is not initialized. Make sure Steam is running and SteamAPI.Init() was called.");
+                throw new SteamNetworkException(
+                    "Steam is not initialized. Make sure Steam is running and SteamAPI.Init() was called.",
+                    SteamNetworkErrorKind.SteamUnavailable,
+                    operation: nameof(InitializeP2P),
+                    isRetryable: true);
             }
 
 #if IL2CPP
@@ -664,13 +724,28 @@ namespace SteamNetworkLib.Core
             var payloadSize = chunkSize ?? CalculateFileTransferChunkPayloadSize(transferId, transferName, data.Length);
             if (payloadSize <= 0)
             {
-                throw new P2PException("Unable to calculate a valid file-transfer chunk size.", targetId);
+                throw new P2PException(
+                    "Unable to calculate a valid file-transfer chunk size.",
+                    SteamNetworkErrorKind.PacketTooLarge,
+                    operation: nameof(SendLargeDataAsync),
+                    targetId: targetId,
+                    channel: channel,
+                    messageType: nameof(FileTransferMessage),
+                    packetSize: data.Length);
             }
 
             var maxPayloadSize = CalculateFileTransferChunkPayloadSize(transferId, transferName, data.Length);
             if (payloadSize > maxPayloadSize)
             {
-                throw new P2PException($"Chunk payload too large: {payloadSize} bytes (max: {maxPayloadSize})", targetId);
+                throw new P2PException(
+                    $"Chunk payload too large: {payloadSize} bytes (max: {maxPayloadSize})",
+                    SteamNetworkErrorKind.PacketTooLarge,
+                    operation: nameof(SendLargeDataAsync),
+                    targetId: targetId,
+                    channel: channel,
+                    messageType: nameof(FileTransferMessage),
+                    packetSize: payloadSize,
+                    maxPacketSize: maxPayloadSize);
             }
 
             var totalChunks = Math.Max(1, (int)Math.Ceiling((double)data.Length / payloadSize));
@@ -938,7 +1013,13 @@ namespace SteamNetworkLib.Core
                     }
                     
                     // Throw exception to report the error properly
-                    throw new P2PException($"Invalid message format received from {senderId}. Expected header '{MessageSerializer.MESSAGE_HEADER}' not found.");
+                    throw new P2PException(
+                        $"Invalid message format received from {senderId}. Expected header '{MessageSerializer.MESSAGE_HEADER}' not found.",
+                        SteamNetworkErrorKind.MessageFormatInvalid,
+                        operation: nameof(ProcessIncomingPackets),
+                        targetId: senderId,
+                        channel: channel,
+                        packetSize: data.Length);
 #endif
                 }
             }

@@ -1,4 +1,5 @@
 using System;
+using SteamNetworkLib.Exceptions;
 
 namespace SteamNetworkLib.Sync
 {
@@ -14,7 +15,7 @@ namespace SteamNetworkLib.Sync
     /// </list>
     /// <para>This exception provides detailed information about the type that failed to serialize/deserialize and the associated sync key when available.</para>
     /// </remarks>
-    public class SyncSerializationException : Exception
+    public class SyncSerializationException : SteamNetworkLib.Exceptions.SyncException
     {
         /// <summary>
         /// Gets the type that failed to serialize/deserialize, if available.
@@ -22,16 +23,11 @@ namespace SteamNetworkLib.Sync
         public Type? TargetType { get; }
 
         /// <summary>
-        /// Gets the key associated with the sync operation, if available.
-        /// </summary>
-        public string? SyncKey { get; }
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="SyncSerializationException"/> class.
         /// </summary>
         /// <param name="message">The error message.</param>
         public SyncSerializationException(string message) 
-            : base(message)
+            : base(message, syncKey: null, SteamNetworkErrorKind.SerializationFailed)
         {
         }
 
@@ -41,7 +37,7 @@ namespace SteamNetworkLib.Sync
         /// <param name="message">The error message.</param>
         /// <param name="innerException">The inner exception that caused this exception.</param>
         public SyncSerializationException(string message, Exception innerException) 
-            : base(message, innerException)
+            : base(message, syncKey: null, innerException, SteamNetworkErrorKind.SerializationFailed)
         {
         }
 
@@ -52,7 +48,7 @@ namespace SteamNetworkLib.Sync
         /// <param name="message">The error message.</param>
         /// <param name="targetType">The type that failed to serialize/deserialize.</param>
         public SyncSerializationException(string message, Type targetType) 
-            : base(message)
+            : base(message, syncKey: null, SteamNetworkErrorKind.SerializationFailed)
         {
             TargetType = targetType;
         }
@@ -65,10 +61,9 @@ namespace SteamNetworkLib.Sync
         /// <param name="targetType">The type that failed to serialize/deserialize.</param>
         /// <param name="syncKey">The sync key associated with the operation.</param>
         public SyncSerializationException(string message, Type targetType, string syncKey) 
-            : base(message)
+            : base(message, syncKey, SteamNetworkErrorKind.SerializationFailed)
         {
             TargetType = targetType;
-            SyncKey = syncKey;
         }
 
         /// <summary>
@@ -80,10 +75,9 @@ namespace SteamNetworkLib.Sync
         /// <param name="syncKey">The sync key associated with the operation.</param>
         /// <param name="innerException">The inner exception that caused this exception.</param>
         public SyncSerializationException(string message, Type targetType, string syncKey, Exception innerException) 
-            : base(message, innerException)
+            : base(message, syncKey, innerException, SteamNetworkErrorKind.SerializationFailed)
         {
             TargetType = targetType;
-            SyncKey = syncKey;
         }
     }
 }

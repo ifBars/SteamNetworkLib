@@ -76,13 +76,24 @@ namespace SteamNetworkLib.Core
 
             if (!_lobbyManager.IsInLobby)
             {
-                throw new LobbyException("Cannot set member data - not in a lobby");
+                throw new LobbyException(
+                    "Cannot set member data - not in a lobby",
+                    SteamNetworkErrorKind.NotInLobby,
+                    operation: nameof(SetMemberData),
+                    memberId: playerId,
+                    dataKey: key,
+                    isRetryable: true);
             }
 
             // Only allow setting data for local player
             if (playerId != _lobbyManager.LocalPlayerID)
             {
-                throw new LobbyException("Cannot set member data for other players - only for local player");
+                throw new LobbyException(
+                    "Cannot set member data for other players - only for local player",
+                    SteamNetworkErrorKind.PermissionDenied,
+                    operation: nameof(SetMemberData),
+                    memberId: playerId,
+                    dataKey: key);
             }
 
             var lobbyId = _lobbyManager.CurrentLobby!.LobbyId;
@@ -170,7 +181,12 @@ namespace SteamNetworkLib.Core
 
             if (!_lobbyManager.IsInLobby)
             {
-                throw new LobbyException("Cannot remove member data - not in a lobby");
+                throw new LobbyException(
+                    "Cannot remove member data - not in a lobby",
+                    SteamNetworkErrorKind.NotInLobby,
+                    operation: nameof(RemoveMemberData),
+                    dataKey: key,
+                    isRetryable: true);
             }
 
             var playerId = _lobbyManager.LocalPlayerID;
@@ -266,7 +282,11 @@ namespace SteamNetworkLib.Core
 
             if (!_lobbyManager.IsInLobby)
             {
-                throw new LobbyException("Cannot set member data - not in a lobby");
+                throw new LobbyException(
+                    "Cannot set member data - not in a lobby",
+                    SteamNetworkErrorKind.NotInLobby,
+                    operation: nameof(SetMemberDataBatch),
+                    isRetryable: true);
             }
 
             // Set all data in batch for local player
@@ -278,7 +298,13 @@ namespace SteamNetworkLib.Core
                 }
                 catch (Exception ex)
                 {
-                    throw new LobbyException($"Failed to set member data for key '{kvp.Key}': {ex.Message}", ex);
+                    throw new LobbyException(
+                        $"Failed to set member data for key '{kvp.Key}': {ex.Message}",
+                        ex,
+                        SteamNetworkErrorKind.MemberDataFailed,
+                        operation: nameof(SetMemberDataBatch),
+                        memberId: _lobbyManager.LocalPlayerID,
+                        dataKey: kvp.Key);
                 }
             }
         }

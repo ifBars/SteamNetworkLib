@@ -54,7 +54,12 @@ namespace SteamNetworkLib.Utilities
             }
             catch (Exception ex) when (!(ex is P2PException))
             {
-                throw new P2PException($"Failed to serialize message: {ex.Message}", ex);
+                throw new P2PException(
+                    $"Failed to serialize message: {ex.Message}",
+                    ex,
+                    SteamNetworkErrorKind.SerializationFailed,
+                    operation: nameof(SerializeMessage),
+                    messageType: message.MessageType);
             }
         }
 
@@ -71,7 +76,11 @@ namespace SteamNetworkLib.Utilities
                 if (data.Length < 6) // Minimum size: header(4) + type_length(1) + type(1)
                 {
                     var errorMsg = $"Invalid message data: too short ({data.Length} bytes)";
-                    throw new P2PException(errorMsg);
+                    throw new P2PException(
+                        errorMsg,
+                        SteamNetworkErrorKind.MessageFormatInvalid,
+                        operation: nameof(DeserializeMessage),
+                        packetSize: data.Length);
                 }
 
                 var headerBytes = Encoding.UTF8.GetBytes(MESSAGE_HEADER);
@@ -93,7 +102,11 @@ namespace SteamNetworkLib.Utilities
                     var actualHeader = new byte[headerBytes.Length];
                     Array.Copy(data, offset, actualHeader, 0, headerBytes.Length);
                     var errorMsg = $"Invalid message header: expected '{MESSAGE_HEADER}', got '{Encoding.UTF8.GetString(actualHeader)}'";
-                    throw new P2PException(errorMsg);
+                    throw new P2PException(
+                        errorMsg,
+                        SteamNetworkErrorKind.MessageFormatInvalid,
+                        operation: nameof(DeserializeMessage),
+                        packetSize: data.Length);
                 }
                 offset += headerBytes.Length;
 
@@ -104,7 +117,11 @@ namespace SteamNetworkLib.Utilities
                 if (typeLength == 0 || offset + typeLength > data.Length)
                 {
                     var errorMsg = $"Invalid message format: type length {typeLength} exceeds data bounds (data length: {data.Length}, offset: {offset})";
-                    throw new P2PException(errorMsg);
+                    throw new P2PException(
+                        errorMsg,
+                        SteamNetworkErrorKind.MessageFormatInvalid,
+                        operation: nameof(DeserializeMessage),
+                        packetSize: data.Length);
                 }
 
                 // Get message type
@@ -120,7 +137,12 @@ namespace SteamNetworkLib.Utilities
             }
             catch (Exception ex) when (!(ex is P2PException))
             {
-                throw new P2PException($"Failed to deserialize message: {ex.Message}", ex);
+                throw new P2PException(
+                    $"Failed to deserialize message: {ex.Message}",
+                    ex,
+                    SteamNetworkErrorKind.MessageFormatInvalid,
+                    operation: nameof(DeserializeMessage),
+                    packetSize: data.Length);
             }
         }
 
@@ -142,7 +164,11 @@ namespace SteamNetworkLib.Utilities
                 // Validate message type matches
                 if (message.MessageType != messageType)
                 {
-                    throw new P2PException($"Message type mismatch: expected '{message.MessageType}', got '{messageType}'");
+                    throw new P2PException(
+                        $"Message type mismatch: expected '{message.MessageType}', got '{messageType}'",
+                        SteamNetworkErrorKind.MessageTypeMismatch,
+                        operation: nameof(CreateMessage),
+                        messageType: messageType);
                 }
 
                 message.Deserialize(messageData);
@@ -151,7 +177,12 @@ namespace SteamNetworkLib.Utilities
             }
             catch (Exception ex) when (!(ex is P2PException))
             {
-                throw new P2PException($"Failed to create message of type {typeof(T).Name}: {ex.Message}", ex);
+                throw new P2PException(
+                    $"Failed to create message of type {typeof(T).Name}: {ex.Message}",
+                    ex,
+                    SteamNetworkErrorKind.SerializationFailed,
+                    operation: nameof(CreateMessage),
+                    messageType: typeof(T).Name);
             }
         }
 
