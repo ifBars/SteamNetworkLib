@@ -12,8 +12,6 @@
   href: p2p-messaging.md
 - name: Dedicated Server Compatibility
   href: dedicated-server-compatibility.md
-- name: Performance Report
-  href: performance-report.md
 - name: Network Rules
   href: network-rules.md
 - name: Events and Error Handling
