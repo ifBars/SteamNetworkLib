@@ -2,8 +2,8 @@
 <Project>
   <!-- Copy this file to Directory.Build.user.props and modify the paths as needed -->
   <PropertyGroup>
-    <!-- Set your game installation path here -->
-    <GameInstallPath>C:\Path\To\Your\Game\Installation</GameInstallPath>
+    <!-- Set your Schedule 1 installation path here -->
+    <GameInstallPath>C:\Path\To\Schedule I</GameInstallPath>
     
     <!-- The default paths below assume the following structure:
          - $(GameInstallPath)\Schedule I_Data\Managed - Contains Steamworks.NET and UnityEngine DLLs
@@ -19,4 +19,4 @@
     <!-- <MelonLoaderIl2CppPath>$(GameInstallPath)\Custom\Path\To\Il2CppAssemblies</MelonLoaderIl2CppPath> -->
     <!-- <ScheduleOneManagedPath>$(GameInstallPath)\Schedule I_Data\Managed</ScheduleOneManagedPath> -->
   </PropertyGroup>
-</Project> 
+</Project>

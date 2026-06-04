@@ -139,4 +139,4 @@ public class SensorDataSender : StreamSender<SensorReading>
 - **Video streaming** - H.264/H.265 support
 - **Recording/playback** - Save streams to disk
 
-This architecture provides a solid foundation for real-time multimedia streaming in Unity games and applications, with quality comparable to professional streaming services. 
+This architecture provides a solid foundation for real-time multimedia streaming in Schedule 1 mods, with quality comparable to professional streaming services.

@@ -8,7 +8,7 @@ Quick guide to get the sync var tests running with Goldberg Steam Emulator.
 
 1. Download Goldberg from: https://github.com/Detanup01/gbe_fork/releases
 2. Extract the `steam_api64.dll` from the download
-3. This DLL will be automatically copied from your game installation (configured in Directory.Build.user.props)
+3. This DLL will be automatically copied from your Schedule 1 installation (configured in Directory.Build.user.props)
 
 ### Step 2: Verify Configuration
 
@@ -18,7 +18,7 @@ Check that your `Directory.Build.user.props` file has correct paths:
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
-    <MonoGameInstallPath>D:\Path\To\Your\Game</MonoGameInstallPath>
+    <MonoGameInstallPath>D:\Path\To\Schedule I</MonoGameInstallPath>
     <MonoAssembliesPath>$(MonoGameInstallPath)\Schedule I_Data\Managed</MonoAssembliesPath>
   </PropertyGroup>
 </Project>
@@ -28,9 +28,9 @@ Check that your `Directory.Build.user.props` file has correct paths:
 
 ### Step 3: Place Goldberg DLL
 
-Copy the Goldberg `steam_api64.dll` to your game installation directory (replacing the original):
+Copy the Goldberg `steam_api64.dll` to your Schedule 1 installation directory (replacing the original):
 ```
-D:\Path\To\Your\Game\steam_api64.dll
+D:\Path\To\Schedule I\steam_api64.dll
 ```
 
 **OR** manually copy it to the test output directory after building:

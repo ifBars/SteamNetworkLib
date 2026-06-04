@@ -1,6 +1,6 @@
 # SteamNetworkLib
 
-A streamlined, object-oriented Steam networking library designed specifically for **MelonLoader mods**. This library dramatically simplifies Steam lobby management, data synchronization, and P2P communication compared to using Steamworks.NET directly.
+A streamlined, object-oriented Steam networking library designed specifically for **Schedule 1 MelonLoader mods**. This library dramatically simplifies Steam lobby management, data synchronization, and P2P communication compared to using Steamworks.NET directly.
 
 ## 🚀 Key Features
 
@@ -35,16 +35,16 @@ A streamlined, object-oriented Steam networking library designed specifically fo
 - **.NET Framework 4.7.2+** or **.NET 6.0+**
 - **Steamworks.NET** (included with game)
 - **Steam**
-- **MelonLoader** (for mod development)
+- **MelonLoader** (for Schedule 1 mod development)
 
 ## 🔨 Building from Source
 
 1. Clone this repository
 2. Copy `Directory.Build.user.props.template` to `Directory.Build.user.props`
-3. Edit `Directory.Build.user.props` and set your game installation path:
+3. Edit `Directory.Build.user.props` and set your Schedule 1 installation path:
    ```xml
    <PropertyGroup>
-     <GameInstallPath>C:\Path\To\Your\Game\Installation</GameInstallPath>
+     <GameInstallPath>C:\Path\To\Schedule I</GameInstallPath>
    </PropertyGroup>
    ```
 

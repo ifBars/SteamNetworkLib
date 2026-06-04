@@ -1,14 +1,14 @@
 # Getting Started
 
-This guide walks you through setting up SteamNetworkLib in a Unity game mod using MelonLoader and implementing the minimal loop.
+This guide walks you through setting up SteamNetworkLib in a Schedule 1 MelonLoader mod and implementing the minimal loop.
 
 ## Installation
 
 ### Prerequisites
 
-1. MelonLoader installed on the target Unity game
+1. MelonLoader installed on Schedule 1
 2. Steam client running
-3. Unity game with Steam integration
+3. Schedule 1 launched through Steam
 4. Basic C# and MelonLoader modding knowledge
 5. Visual Studio or VS Code
 
@@ -20,7 +20,7 @@ Target .NET Standard 2.1 (works for Mono and Il2Cpp) and reference SteamNetworkL
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <AssemblyTitle>YourAwesomeMod</AssemblyTitle>
+    <AssemblyTitle>YourScheduleOneMod</AssemblyTitle>
     <AssemblyVersion>1.0.0</AssemblyVersion>
   </PropertyGroup>
 </Project>
@@ -78,7 +78,7 @@ using SteamNetworkLib.Core;
 using SteamNetworkLib.Exceptions;
 using UnityEngine;
 
-public class YourAwesomeModMain : MelonMod
+public class YourScheduleOneModMain : MelonMod
 {
     private SteamNetworkClient client;
     private float nextNetworkInitAttempt;

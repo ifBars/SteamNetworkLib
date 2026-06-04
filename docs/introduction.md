@@ -2,7 +2,7 @@
 
 ## What is SteamNetworkLib?
 
-SteamNetworkLib is a powerful C# wrapper library built on top of **Steamworks.NET** that dramatically simplifies Steam networking functionality for Unity games and applications. It provides a clean, intuitive API for common networking tasks that would otherwise require extensive boilerplate code and deep knowledge of the Steamworks API.
+SteamNetworkLib is a powerful C# wrapper library built on top of **Steamworks.NET** that dramatically simplifies Steam networking functionality for Schedule 1 MelonLoader mods. It provides a clean, intuitive API for common networking tasks that would otherwise require extensive boilerplate code and deep knowledge of the Steamworks API.
 
 ## Why SteamNetworkLib?
 
@@ -23,7 +23,7 @@ Working directly with Steamworks.NET can be challenging and error-prone. Especia
 ### 🔧 **Developer-Friendly**
 - **Extensive documentation** with practical examples
 - **Full XML documentation** for IntelliSense support
-- **MelonLoader optimized** for modding scenarios
+- **MelonLoader optimized** for Schedule 1 modding scenarios
 
 ## Key Features (at a glance)
 
@@ -43,7 +43,7 @@ See the dedicated guides for details:
 
 ## Architecture Overview
 
-SteamNetworkLib is designed with modularity and ease of use in mind:
+SteamNetworkLib is designed for Schedule 1 mods with modularity and ease of use in mind:
 
 ```
 SteamNetworkClient (Main Entry Point)
@@ -61,4 +61,4 @@ SteamNetworkClient (Main Entry Point)
 
 ## Getting Started
 
-Ready to dive in? Head over to the [Getting Started](getting-started.md) guide to learn how to integrate SteamNetworkLib into your project in just a few minutes!
+Ready to dive in? Head over to the [Getting Started](getting-started.md) guide to learn how to integrate SteamNetworkLib into your Schedule 1 mod in just a few minutes!

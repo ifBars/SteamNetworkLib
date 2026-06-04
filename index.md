@@ -10,7 +10,7 @@ _layout: landing
       <div class="snl-brand">
         <div>
           <h1 class="snl-title">SteamNetworkLib</h1>
-          <div class="snl-tagline">A modern, MelonLoader-first Steamworks.NET networking wrapper</div>
+          <div class="snl-tagline">A modern Steamworks.NET networking wrapper for Schedule 1 MelonLoader mods</div>
         </div>
       </div>
       <div class="snl-badges">
@@ -55,7 +55,7 @@ steamNetwork.SetLobbyData("mod_version", "1.0.0");</code></pre>
       </div>
       <div class="snl-card">
         <h3>🔧 MelonLoader Optimized</h3>
-        <p>Minimal setup, safe error handling, and automatic cleanup designed specifically for mod development.</p>
+        <p>Minimal setup, safe error handling, and automatic cleanup designed specifically for Schedule 1 mod development.</p>
       </div>
     </div>
   </div>
@@ -66,7 +66,7 @@ steamNetwork.SetLobbyData("mod_version", "1.0.0");</code></pre>
     <h2>Next steps</h2>
     <ul>
       <li><a href="docs/introduction.html">Introduction</a> – Features and architecture</li>
-      <li><a href="docs/getting-started.html">Getting Started</a> – Set up your first project</li>
+      <li><a href="docs/getting-started.html">Getting Started</a> – Set up your first Schedule 1 mod project</li>
       <li><a href="api/SteamNetworkLib.SteamNetworkClient.html">API Reference</a> – Explore the public surface</li>
     </ul>
     <p class="snl-muted">SteamNetworkLib reduces hundreds of lines of complex Steamworks code to clean, maintainable patterns.</p>

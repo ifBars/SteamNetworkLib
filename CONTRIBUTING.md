@@ -39,7 +39,7 @@ This project is committed to providing a welcoming and inclusive environment for
 
 1. Clone the repository
 2. Copy `Directory.Build.user.props.template` to `Directory.Build.user.props`
-3. Configure your game installation paths in `Directory.Build.user.props`
+3. Configure your Schedule 1 installation paths in `Directory.Build.user.props`
 4. Build the project: `dotnet build -c Mono` or `dotnet build -c Il2cpp`
 
 ## Code Style Guidelines
@@ -54,7 +54,7 @@ This project is committed to providing a welcoming and inclusive environment for
 
 - Test your changes thoroughly
 - Ensure compatibility with both Mono and IL2CPP runtimes
-- Test with different Unity versions if applicable
+- Test against the supported Schedule 1 Mono/IL2CPP runtime targets when applicable
 - Verify Steam networking functionality
 
 ## License
@@ -71,4 +71,4 @@ When contributing, please ensure that:
 
 ## Questions?
 
-If you have questions about contributing, please open an issue or contact the maintainers. 
+If you have questions about contributing, please open an issue or contact the maintainers.
