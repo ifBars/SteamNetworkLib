@@ -436,14 +436,26 @@ namespace SteamNetworkLib.Tests.Unit
         }
 
         [Fact]
-        public void RawStringSyncSerializer_NullString_SerializesAsEmptyString()
+        public void RawStringSyncSerializer_EmptyString_RoundTripsThroughNonEmptySentinel()
+        {
+            var serializer = new RawStringSyncSerializer();
+
+            var serialized = serializer.Serialize("");
+            var deserialized = serializer.Deserialize<string>(serialized);
+
+            serialized.Should().NotBeEmpty("Steam lobby/member data APIs use empty strings for missing keys");
+            deserialized.Should().BeEmpty();
+        }
+
+        [Fact]
+        public void RawStringSyncSerializer_NullString_RoundTripsAsEmptyString()
         {
             var serializer = new RawStringSyncSerializer();
 
             var serialized = serializer.Serialize<string?>(null);
             var deserialized = serializer.Deserialize<string>(serialized);
 
-            serialized.Should().BeEmpty();
+            serialized.Should().NotBeEmpty();
             deserialized.Should().BeEmpty();
         }
 

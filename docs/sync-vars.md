@@ -313,7 +313,7 @@ var hostState = client.CreateHostSyncVar("HostState", "", rawOptions);
 hostState.Value = "stock|pseudo|12|420";
 ```
 
-Prefer the default `JsonSyncSerializer` for normal typed values. `RawStringSyncSerializer` only supports `string`; it intentionally rejects other types so accidental typed state does not get converted through `ToString()`.
+Prefer the default `JsonSyncSerializer` for normal typed values. `RawStringSyncSerializer` only supports `string`; it intentionally rejects other types so accidental typed state does not get converted through `ToString()`. Empty strings are preserved with an internal sentinel because Steam lobby/member data APIs also use empty strings to represent missing keys.
 
 ## Complete Example
 
