@@ -39,6 +39,10 @@ namespace SteamNetworkLib.Utilities
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
             DefaultTimeout = defaultTimeout ?? TimeSpan.FromSeconds(10);
+            if (DefaultTimeout <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(defaultTimeout), "Default timeout must be greater than zero.");
+            }
 
             _client.RegisterMessageHandler<TResponse>(HandleResponse);
         }
@@ -84,6 +88,12 @@ namespace SteamNetworkLib.Utilities
                 request.RequestId = Guid.NewGuid().ToString("N");
             }
 
+            var effectiveTimeout = timeout ?? DefaultTimeout;
+            if (effectiveTimeout <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(timeout), "Timeout must be greater than zero.");
+            }
+
             var requestId = request.RequestId;
             var pending = new TaskCompletionSource<TResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -104,12 +114,6 @@ namespace SteamNetworkLib.Utilities
                 {
                     RemovePending(requestId);
                     throw new InvalidOperationException($"Failed to send P2P request '{requestId}' to {targetId.m_SteamID}.");
-                }
-
-                var effectiveTimeout = timeout ?? DefaultTimeout;
-                if (effectiveTimeout <= TimeSpan.Zero)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(timeout), "Timeout must be greater than zero.");
                 }
 
                 var completed = await Task.WhenAny(pending.Task, Task.Delay(effectiveTimeout));
@@ -143,6 +147,11 @@ namespace SteamNetworkLib.Utilities
 
             _client.RegisterMessageHandler<TRequest>((request, senderId) =>
             {
+                if (_disposed)
+                {
+                    return;
+                }
+
                 _ = SendResponseFromResponderAsync(request, senderId, responder);
             });
         }
@@ -190,6 +199,11 @@ namespace SteamNetworkLib.Utilities
             CSteamID senderId,
             Func<TRequest, CSteamID, Task<TResponse>> responder)
         {
+            if (_disposed)
+            {
+                return;
+            }
+
             TResponse response;
 
             try
@@ -205,6 +219,11 @@ namespace SteamNetworkLib.Utilities
             {
                 response = new TResponse();
                 SetFailureIfSupported(response, ex.Message);
+            }
+
+            if (_disposed)
+            {
+                return;
             }
 
             response.RequestId = request.RequestId;
