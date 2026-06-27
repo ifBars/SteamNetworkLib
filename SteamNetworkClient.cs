@@ -938,6 +938,40 @@ namespace SteamNetworkLib
         }
 
         /// <summary>
+        /// Registers a handler for a specific message type and returns a subscription that removes only that handler.
+        /// </summary>
+        /// <typeparam name="T">The type of message to handle.</typeparam>
+        /// <param name="handler">The handler function that will be called when messages of this type are received.</param>
+        /// <returns>A disposable subscription for this handler.</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the client is not initialized.</exception>
+        public IDisposable SubscribeMessageHandler<T>(Action<T, CSteamID> handler) where T : P2PMessage, new()
+        {
+            EnsureInitialized();
+            return P2PManager.SubscribeMessageHandler(handler);
+        }
+
+        /// <summary>
+        /// Creates a helper for correlated P2P request/response messages.
+        /// </summary>
+        /// <typeparam name="TRequest">The request message type.</typeparam>
+        /// <typeparam name="TResponse">The response message type.</typeparam>
+        /// <param name="defaultTimeout">Optional default timeout for requests sent by the helper.</param>
+        /// <returns>A request/response helper bound to this client.</returns>
+        /// <remarks>
+        /// Use this for host-approved actions such as checkout requests, permission checks,
+        /// lock acquisition, and other flows where the caller needs a single answer from a
+        /// specific peer. Dispose the returned helper when the mod unloads or no longer uses
+        /// the message pair.
+        /// </remarks>
+        public P2PRequestResponseClient<TRequest, TResponse> CreateRequestResponseClient<TRequest, TResponse>(TimeSpan? defaultTimeout = null)
+            where TRequest : P2PMessage, IP2PCorrelatedMessage, new()
+            where TResponse : P2PMessage, IP2PResponseMessage, new()
+        {
+            EnsureInitialized();
+            return new P2PRequestResponseClient<TRequest, TResponse>(this, defaultTimeout);
+        }
+
+        /// <summary>
         /// Processes incoming P2P packets. Call this regularly (e.g., in Update()).
         /// </summary>
         /// <remarks>

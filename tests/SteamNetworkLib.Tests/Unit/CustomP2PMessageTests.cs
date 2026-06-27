@@ -117,6 +117,46 @@ namespace SteamNetworkLib.Tests.Unit
         }
     }
 
+    public class TestCheckoutRequestPayload
+    {
+        public string ItemId { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+    }
+
+    public class TestCheckoutResponsePayload
+    {
+        public string ReservationId { get; set; } = string.Empty;
+        public int ApprovedQuantity { get; set; }
+    }
+
+    public class TestCheckoutRequestMessage : P2PRequestMessage<TestCheckoutRequestPayload>
+    {
+        public override string MessageType => "TEST_CHECKOUT_REQUEST";
+
+        public TestCheckoutRequestMessage()
+        {
+        }
+
+        public TestCheckoutRequestMessage(TestCheckoutRequestPayload payload)
+            : base(payload)
+        {
+        }
+    }
+
+    public class TestCheckoutResponseMessage : P2PResponseMessage<TestCheckoutResponsePayload>
+    {
+        public override string MessageType => "TEST_CHECKOUT_RESPONSE";
+
+        public TestCheckoutResponseMessage()
+        {
+        }
+
+        public TestCheckoutResponseMessage(TestCheckoutResponsePayload payload)
+            : base(payload)
+        {
+        }
+    }
+
     /// <summary>
     /// Unit tests for custom P2P message types and message handler registration.
     /// Tests demonstrate the current limitation where custom message types don't trigger callbacks.
@@ -366,6 +406,81 @@ namespace SteamNetworkLib.Tests.Unit
             restored.Payload.ItemId.Should().Be("item \"with quotes\"");
             restored.Payload.Slot.Property.Should().Be("Main\nProperty");
             restored.Payload.Slot.Grid.Should().Be("Grid\\Back");
+        }
+
+        [Fact]
+        public void P2PRequestMessage_Serialize_RoundTripsRequestIdAndBody()
+        {
+            var original = new TestCheckoutRequestMessage(new TestCheckoutRequestPayload
+            {
+                ItemId = "pseudo",
+                Quantity = 12
+            })
+            {
+                RequestId = "req-123"
+            };
+
+            var restored = new TestCheckoutRequestMessage();
+            restored.Deserialize(original.Serialize());
+
+            restored.RequestId.Should().Be("req-123");
+            restored.Body.ItemId.Should().Be("pseudo");
+            restored.Body.Quantity.Should().Be(12);
+        }
+
+        [Fact]
+        public void P2PResponseMessage_Serialize_RoundTripsStatusAndBody()
+        {
+            var original = new TestCheckoutResponseMessage(new TestCheckoutResponsePayload
+            {
+                ReservationId = "reservation-1",
+                ApprovedQuantity = 10
+            })
+            {
+                RequestId = "req-123",
+                Success = true
+            };
+
+            var restored = new TestCheckoutResponseMessage();
+            restored.Deserialize(original.Serialize());
+
+            restored.RequestId.Should().Be("req-123");
+            restored.Success.Should().BeTrue();
+            restored.Error.Should().BeEmpty();
+            restored.Body.ReservationId.Should().Be("reservation-1");
+            restored.Body.ApprovedQuantity.Should().Be(10);
+        }
+
+        [Fact]
+        public void P2PResponseMessage_ImplementsResponseContract()
+        {
+            var response = new TestCheckoutResponseMessage();
+
+            response.Should().BeAssignableTo<IP2PResponseMessage>();
+        }
+
+        [Fact]
+        public void MessageSerializer_CreateMessage_RequestResponseMessages_RoundTrip()
+        {
+            var original = new TestCheckoutResponseMessage(new TestCheckoutResponsePayload
+            {
+                ReservationId = "reservation-2",
+                ApprovedQuantity = 4
+            })
+            {
+                RequestId = "req-serializer",
+                Success = false,
+                Error = "not enough stock"
+            };
+
+            var serialized = MessageSerializer.SerializeMessage(original);
+            var restored = MessageSerializer.CreateMessage<TestCheckoutResponseMessage>(serialized);
+
+            MessageSerializer.GetMessageType(serialized).Should().Be("TEST_CHECKOUT_RESPONSE");
+            restored.RequestId.Should().Be("req-serializer");
+            restored.Success.Should().BeFalse();
+            restored.Error.Should().Be("not enough stock");
+            restored.Body.ApprovedQuantity.Should().Be(4);
         }
 
         #endregion
