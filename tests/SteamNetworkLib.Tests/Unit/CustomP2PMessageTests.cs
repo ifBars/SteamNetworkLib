@@ -452,6 +452,14 @@ namespace SteamNetworkLib.Tests.Unit
         }
 
         [Fact]
+        public void P2PResponseMessage_ImplementsResponseContract()
+        {
+            var response = new TestCheckoutResponseMessage();
+
+            response.Should().BeAssignableTo<IP2PResponseMessage>();
+        }
+
+        [Fact]
         public void MessageSerializer_CreateMessage_RequestResponseMessages_RoundTrip()
         {
             var original = new TestCheckoutResponseMessage(new TestCheckoutResponsePayload

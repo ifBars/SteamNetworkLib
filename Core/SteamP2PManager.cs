@@ -443,6 +443,17 @@ namespace SteamNetworkLib.Core
         /// <param name="handler">The handler function that will be called when messages of this type are received.</param>
         public void RegisterMessageHandler<T>(Action<T, CSteamID> handler) where T : P2PMessage, new()
         {
+            SubscribeMessageHandler(handler);
+        }
+
+        /// <summary>
+        /// Registers a handler for a specific message type and returns a subscription that removes only that handler.
+        /// </summary>
+        /// <typeparam name="T">The type of message to handle.</typeparam>
+        /// <param name="handler">The handler function that will be called when messages of this type are received.</param>
+        /// <returns>A disposable subscription for this handler.</returns>
+        public IDisposable SubscribeMessageHandler<T>(Action<T, CSteamID> handler) where T : P2PMessage, new()
+        {
             var messageType = new T().MessageType;
 
             // Automatically register custom message types
@@ -458,7 +469,7 @@ namespace SteamNetworkLib.Core
 
 #if IL2CPP
             // IL2CPP-specific handler registration to avoid generic type issues
-            _messageHandlers[messageType].Add(new System.Action<P2PMessage, CSteamID>((message, senderId) =>
+            Action<P2PMessage, CSteamID> wrappedHandler = new System.Action<P2PMessage, CSteamID>((message, senderId) =>
             {
                 // Use explicit type check and cast to avoid IL2CPP generic issues
                 if (message != null && message.GetType() == typeof(T))
@@ -485,16 +496,19 @@ namespace SteamNetworkLib.Core
                         Console.WriteLine($"Error calling handler for assignable type: {ex.Message}");
                     }
                 }
-            }));
+            });
 #else
-            _messageHandlers[messageType].Add((message, senderId) =>
+            Action<P2PMessage, CSteamID> wrappedHandler = (message, senderId) =>
             {
                 if (message is T typedMessage)
                 {
                     handler(typedMessage, senderId);
                 }
-            });
+            };
 #endif
+
+            _messageHandlers[messageType].Add(wrappedHandler);
+            return new MessageHandlerSubscription(() => RemoveMessageHandler(messageType, wrappedHandler));
         }
 
         /// <summary>
@@ -505,6 +519,20 @@ namespace SteamNetworkLib.Core
         {
             var messageType = new T().MessageType;
             _messageHandlers.Remove(messageType);
+        }
+
+        private void RemoveMessageHandler(string messageType, Action<P2PMessage, CSteamID> handler)
+        {
+            if (!_messageHandlers.TryGetValue(messageType, out var handlers))
+            {
+                return;
+            }
+
+            handlers.Remove(handler);
+            if (handlers.Count == 0)
+            {
+                _messageHandlers.Remove(messageType);
+            }
         }
 
         /// <summary>
@@ -1115,7 +1143,7 @@ namespace SteamNetworkLib.Core
 
                     if (_messageHandlers.TryGetValue(messageType, out var handlers))
                     {
-                        foreach (var handler in handlers)
+                        foreach (var handler in handlers.ToArray())
                         {
                             try
                             {
@@ -1132,6 +1160,28 @@ namespace SteamNetworkLib.Core
             catch (Exception ex)
             {
                 Console.WriteLine($"Error processing SteamNetworkLib message: {ex.Message}");
+            }
+        }
+
+        private sealed class MessageHandlerSubscription : IDisposable
+        {
+            private readonly Action _dispose;
+            private bool _disposed;
+
+            public MessageHandlerSubscription(Action dispose)
+            {
+                _dispose = dispose;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                _dispose();
+                _disposed = true;
             }
         }
 

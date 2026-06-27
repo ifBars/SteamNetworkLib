@@ -4,7 +4,7 @@ namespace SteamNetworkLib.Models
     /// Base class for typed P2P response messages with a correlation ID.
     /// </summary>
     /// <typeparam name="TPayload">The response payload DTO type.</typeparam>
-    public abstract class P2PResponseMessage<TPayload> : TypedP2PMessage<P2PResponsePayload<TPayload>>, IP2PCorrelatedMessage
+    public abstract class P2PResponseMessage<TPayload> : TypedP2PMessage<P2PResponsePayload<TPayload>>, IP2PResponseMessage
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="P2PResponseMessage{TPayload}"/> class.

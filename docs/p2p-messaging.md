@@ -137,6 +137,7 @@ The helper:
 - Tracks pending responses by `RequestId`.
 - Times out requests that never receive a matching response.
 - Provides a responder wrapper that copies the request ID onto the response.
+- Cleans up its registered handlers when disposed.
 
 ### Define request and response messages
 
@@ -186,13 +187,14 @@ public class CheckoutResponseMessage : P2PResponseMessage<CheckoutResponsePayloa
 
 ```csharp
 private P2PRequestResponseClient<CheckoutRequestMessage, CheckoutResponseMessage>? checkoutRpc;
+private IDisposable? checkoutResponder;
 
 private void RegisterNetworking()
 {
     checkoutRpc = client.CreateRequestResponseClient<CheckoutRequestMessage, CheckoutResponseMessage>(
         TimeSpan.FromSeconds(10));
 
-    checkoutRpc.RegisterResponder((request, sender) =>
+    checkoutResponder = checkoutRpc.RegisterResponder((request, sender) =>
     {
         int approved = Math.Min(request.Body.Quantity, GetAvailableStock(request.Body.ItemId));
 
@@ -206,6 +208,12 @@ private void RegisterNetworking()
             Error = approved > 0 ? string.Empty : "Out of stock"
         };
     });
+}
+
+private void CleanupNetworking()
+{
+    checkoutResponder?.Dispose();
+    checkoutRpc?.Dispose();
 }
 ```
 

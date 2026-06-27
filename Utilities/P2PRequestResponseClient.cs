@@ -22,12 +22,14 @@ namespace SteamNetworkLib.Utilities
     /// </remarks>
     public sealed class P2PRequestResponseClient<TRequest, TResponse> : IDisposable
         where TRequest : P2PMessage, IP2PCorrelatedMessage, new()
-        where TResponse : P2PMessage, IP2PCorrelatedMessage, new()
+        where TResponse : P2PMessage, IP2PResponseMessage, new()
     {
         private readonly SteamNetworkClient _client;
         private readonly object _syncRoot = new object();
         private readonly Dictionary<string, TaskCompletionSource<TResponse>> _pendingResponses =
             new Dictionary<string, TaskCompletionSource<TResponse>>();
+        private readonly List<IDisposable> _responderSubscriptions = new List<IDisposable>();
+        private readonly IDisposable _responseSubscription;
         private bool _disposed;
 
         /// <summary>
@@ -44,7 +46,7 @@ namespace SteamNetworkLib.Utilities
                 throw new ArgumentOutOfRangeException(nameof(defaultTimeout), "Default timeout must be greater than zero.");
             }
 
-            _client.RegisterMessageHandler<TResponse>(HandleResponse);
+            _responseSubscription = _client.SubscribeMessageHandler<TResponse>(HandleResponse);
         }
 
         /// <summary>
@@ -136,7 +138,7 @@ namespace SteamNetworkLib.Utilities
         /// Registers a responder that receives requests and sends correlated responses.
         /// </summary>
         /// <param name="responder">Async function that builds a response for each request.</param>
-        public void RegisterResponder(Func<TRequest, CSteamID, Task<TResponse>> responder)
+        public IDisposable RegisterResponder(Func<TRequest, CSteamID, Task<TResponse>> responder)
         {
             ThrowIfDisposed();
 
@@ -145,7 +147,7 @@ namespace SteamNetworkLib.Utilities
                 throw new ArgumentNullException(nameof(responder));
             }
 
-            _client.RegisterMessageHandler<TRequest>((request, senderId) =>
+            var subscription = _client.SubscribeMessageHandler<TRequest>((request, senderId) =>
             {
                 if (_disposed)
                 {
@@ -154,20 +156,27 @@ namespace SteamNetworkLib.Utilities
 
                 _ = SendResponseFromResponderAsync(request, senderId, responder);
             });
+
+            lock (_syncRoot)
+            {
+                _responderSubscriptions.Add(subscription);
+            }
+
+            return subscription;
         }
 
         /// <summary>
         /// Registers a synchronous responder that receives requests and sends correlated responses.
         /// </summary>
         /// <param name="responder">Function that builds a response for each request.</param>
-        public void RegisterResponder(Func<TRequest, CSteamID, TResponse> responder)
+        public IDisposable RegisterResponder(Func<TRequest, CSteamID, TResponse> responder)
         {
             if (responder == null)
             {
                 throw new ArgumentNullException(nameof(responder));
             }
 
-            RegisterResponder((request, senderId) => Task.FromResult(responder(request, senderId)));
+            return RegisterResponder((request, senderId) => Task.FromResult(responder(request, senderId)));
         }
 
         /// <summary>
@@ -181,11 +190,20 @@ namespace SteamNetworkLib.Utilities
             }
 
             List<TaskCompletionSource<TResponse>> pending;
+            List<IDisposable> responders;
             lock (_syncRoot)
             {
                 pending = new List<TaskCompletionSource<TResponse>>(_pendingResponses.Values);
                 _pendingResponses.Clear();
+                responders = new List<IDisposable>(_responderSubscriptions);
+                _responderSubscriptions.Clear();
                 _disposed = true;
+            }
+
+            _responseSubscription.Dispose();
+            foreach (var responder in responders)
+            {
+                responder.Dispose();
             }
 
             foreach (var response in pending)
@@ -212,13 +230,13 @@ namespace SteamNetworkLib.Utilities
                 if (response == null)
                 {
                     response = new TResponse();
-                    SetFailureIfSupported(response, "Responder returned null.");
+                    SetFailure(response, "Responder returned null.");
                 }
             }
             catch (Exception ex)
             {
                 response = new TResponse();
-                SetFailureIfSupported(response, ex.Message);
+                SetFailure(response, ex.Message);
             }
 
             if (_disposed)
@@ -259,26 +277,10 @@ namespace SteamNetworkLib.Utilities
             }
         }
 
-        private static void SetFailureIfSupported(TResponse response, string error)
+        private static void SetFailure(TResponse response, string error)
         {
-            if (response is P2PResponseMessage<string> stringResponse)
-            {
-                stringResponse.Success = false;
-                stringResponse.Error = error;
-                return;
-            }
-
-            var successProperty = typeof(TResponse).GetProperty("Success");
-            if (successProperty?.CanWrite == true && successProperty.PropertyType == typeof(bool))
-            {
-                successProperty.SetValue(response, false);
-            }
-
-            var errorProperty = typeof(TResponse).GetProperty("Error");
-            if (errorProperty?.CanWrite == true && errorProperty.PropertyType == typeof(string))
-            {
-                errorProperty.SetValue(response, error);
-            }
+            response.Success = false;
+            response.Error = error;
         }
 
         private void ThrowIfDisposed()
