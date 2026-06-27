@@ -15,21 +15,40 @@ namespace SteamNetworkLib.Sync
     /// </remarks>
     public sealed class RawStringSyncSerializer : ISyncSerializer
     {
-        private const string EmptyStringSentinel = "\uE000SteamNetworkLib.EmptyRawString";
+        private const string ReservedPrefix = "\uE000SteamNetworkLib.RawString:";
+        private const string EmptyStringToken = ReservedPrefix + "Empty";
+        private const string EscapedRawStringToken = ReservedPrefix + "Escaped:";
 
         /// <inheritdoc />
         public string Serialize<T>(T value)
         {
             EnsureStringType(typeof(T));
             var raw = value as string;
-            return string.IsNullOrEmpty(raw) ? EmptyStringSentinel : raw;
+            if (string.IsNullOrEmpty(raw))
+            {
+                return EmptyStringToken;
+            }
+
+            return raw.StartsWith(ReservedPrefix, StringComparison.Ordinal)
+                ? EscapedRawStringToken + raw
+                : raw;
         }
 
         /// <inheritdoc />
         public T Deserialize<T>(string data)
         {
             EnsureStringType(typeof(T));
-            return (T)(object)(data == EmptyStringSentinel ? string.Empty : data ?? string.Empty);
+            if (data == EmptyStringToken)
+            {
+                return (T)(object)string.Empty;
+            }
+
+            if (data != null && data.StartsWith(EscapedRawStringToken, StringComparison.Ordinal))
+            {
+                return (T)(object)data.Substring(EscapedRawStringToken.Length);
+            }
+
+            return (T)(object)(data ?? string.Empty);
         }
 
         /// <inheritdoc />

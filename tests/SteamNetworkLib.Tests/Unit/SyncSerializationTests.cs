@@ -448,6 +448,19 @@ namespace SteamNetworkLib.Tests.Unit
         }
 
         [Fact]
+        public void RawStringSyncSerializer_ReservedPrefix_RoundTripsAsUserData()
+        {
+            var serializer = new RawStringSyncSerializer();
+            var raw = "\uE000SteamNetworkLib.RawString:Empty";
+
+            var serialized = serializer.Serialize(raw);
+            var deserialized = serializer.Deserialize<string>(serialized);
+
+            serialized.Should().NotBe(raw, "reserved serializer tokens must be escaped before storage");
+            deserialized.Should().Be(raw);
+        }
+
+        [Fact]
         public void RawStringSyncSerializer_NullString_RoundTripsAsEmptyString()
         {
             var serializer = new RawStringSyncSerializer();
