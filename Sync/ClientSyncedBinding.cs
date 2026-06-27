@@ -1,15 +1,15 @@
 namespace SteamNetworkLib.Sync
 {
-    internal sealed class HostSyncedBinding<T> : IHostSyncedBinding
+    internal sealed class ClientSyncedBinding<T> : IHostSyncedBinding
     {
-        private readonly HostSyncVar<T> _syncVar;
+        private readonly ClientSyncVar<T> _syncVar;
         private readonly HostSyncedMemberAccessor<T> _accessor;
 
-        public HostSyncedBinding(HostSyncVar<T> syncVar, HostSyncedMemberAccessor<T> accessor)
+        public ClientSyncedBinding(ClientSyncVar<T> syncVar, HostSyncedMemberAccessor<T> accessor)
         {
             _syncVar = syncVar;
             _accessor = accessor;
-            _syncVar.OnValueChanged += HandleValueChanged;
+            _syncVar.OnMyValueChanged += HandleMyValueChanged;
         }
 
         public void SyncFromTarget()
@@ -35,11 +35,11 @@ namespace SteamNetworkLib.Sync
 
         public void Dispose()
         {
-            _syncVar.OnValueChanged -= HandleValueChanged;
+            _syncVar.OnMyValueChanged -= HandleMyValueChanged;
             _syncVar.Dispose();
         }
 
-        private void HandleValueChanged(T oldValue, T newValue)
+        private void HandleMyValueChanged(T oldValue, T newValue)
         {
             _accessor.SetValue(newValue);
         }

@@ -270,25 +270,30 @@ This example includes:
 
 ## Attribute Binding POC
 
-For host-owned values that already live as fields or properties on your mod state object, you can mark them with `[HostSynced]` and bind them to regular `HostSyncVar<T>` instances:
+For values that already live as fields or properties on your mod state object, you can mark them with `[HostSynced]` or `[ClientSynced]` and bind them to regular SyncVar instances:
 
 ```csharp
 public sealed class EventState
 {
+    // Host-owned, all clients read.
     [HostSynced]
     public int RoundNumber { get; set; } = 1;
 
     [HostSynced("event_phase")]
     public string Phase { get; set; } = "setup";
+
+    // Local-player-owned, all clients can read each player's value.
+    [ClientSynced("ready")]
+    public bool IsReady { get; set; }
 }
 
 private EventState state = new EventState();
-private HostSyncedBindingCollection? hostSynced;
+private HostSyncedBindingCollection? synced;
 
 private void CreateSyncVars()
 {
     var options = new NetworkSyncOptions { KeyPrefix = "MyMod_" };
-    hostSynced = client.BindHostSynced(state, options);
+    synced = client.BindSynced(state, options);
 }
 
 private void AdvanceRound()
@@ -299,11 +304,19 @@ private void AdvanceRound()
     }
 
     state.RoundNumber++;
-    hostSynced!.SyncFromTarget();
+    synced!.SyncFromTarget();
+}
+
+private void ToggleReady()
+{
+    state.IsReady = !state.IsReady;
+    synced!.SyncFromTarget();
 }
 ```
 
-This is a convenience layer over `HostSyncVar<T>`, not a different authority model. The host still owns writes, clients still receive updates, and non-host writes are ignored by the underlying SyncVar.
+This is a convenience layer over `HostSyncVar<T>` and `ClientSyncVar<T>`, not a different authority model. Host-synced members still use host-only writes. Client-synced members still use local-player-owned member data. The binder applies already-loaded host values to late-binding clients and force-publishes the host's current member values when the host binds.
+
+Use `BindHostSynced(...)` if you only want to bind `[HostSynced]` members and ignore `[ClientSynced]` members.
 
 ## Custom Serialization
 

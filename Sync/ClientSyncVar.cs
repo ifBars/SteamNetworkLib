@@ -77,7 +77,7 @@ namespace SteamNetworkLib.Sync
         public T Value
         {
             get => _localValue;
-            set => SetValue(value);
+            set => SetValue(value, force: false);
         }
 
         /// <summary>
@@ -168,7 +168,12 @@ namespace SteamNetworkLib.Sync
             TryLoadExistingValues();
         }
 
-        private void SetValue(T newValue)
+        internal void ForceSync(T newValue)
+        {
+            SetValue(newValue, force: true);
+        }
+
+        private void SetValue(T newValue, bool force)
         {
             if (!_client.IsInLobby)
             {
@@ -180,7 +185,7 @@ namespace SteamNetworkLib.Sync
             }
 
             // Check if value actually changed
-            if (Equals(_localValue, newValue))
+            if (!force && Equals(_localValue, newValue))
             {
                 return;
             }
@@ -204,7 +209,7 @@ namespace SteamNetworkLib.Sync
             }
 
             // Check rate limiting
-            if (_options.MaxSyncsPerSecond > 0)
+            if (!force && _options.MaxSyncsPerSecond > 0)
             {
                 var timeSinceLastSync = DateTime.UtcNow - _lastSyncTime;
                 var minInterval = TimeSpan.FromSeconds(1.0 / _options.MaxSyncsPerSecond);
@@ -219,7 +224,7 @@ namespace SteamNetworkLib.Sync
             }
 
             // Check if AutoSync is enabled
-            if (!_options.AutoSync)
+            if (!force && !_options.AutoSync)
             {
                 // Mark as dirty but don't sync yet
                 _pendingValue = newValue;

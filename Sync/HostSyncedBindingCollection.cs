@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace SteamNetworkLib.Sync
 {
     /// <summary>
-    /// Tracks active bindings created from <see cref="HostSyncedAttribute"/> members.
+    /// Tracks active bindings created from <see cref="HostSyncedAttribute"/> or <see cref="ClientSyncedAttribute"/> members.
     /// </summary>
     public sealed class HostSyncedBindingCollection : IDisposable
     {
@@ -22,11 +22,12 @@ namespace SteamNetworkLib.Sync
         public int Count => _bindings.Count;
 
         /// <summary>
-        /// Publishes the current target member values through their host SyncVars.
+        /// Publishes the current target member values through their SyncVars.
         /// </summary>
         /// <remarks>
-        /// This method should be called by host-authoritative code after mutating marked fields or properties.
-        /// Non-host calls use normal <see cref="HostSyncVar{T}"/> behavior and are ignored.
+        /// This method should be called after mutating marked fields or properties.
+        /// Host-synced members use normal <see cref="HostSyncVar{T}"/> host-only behavior.
+        /// Client-synced members use normal <see cref="ClientSyncVar{T}"/> local-player ownership.
         /// </remarks>
         public void SyncFromTarget()
         {
@@ -39,7 +40,7 @@ namespace SteamNetworkLib.Sync
         }
 
         /// <summary>
-        /// Forces every underlying HostSyncVar to refresh from lobby data.
+        /// Forces every underlying SyncVar to refresh from Steam data.
         /// </summary>
         public void RefreshFromNetwork()
         {
@@ -81,6 +82,10 @@ namespace SteamNetworkLib.Sync
     internal interface IHostSyncedBinding : IDisposable
     {
         void SyncFromTarget();
+
+        void ForceSyncFromTarget();
+
+        void ApplyCurrentValueToTarget();
 
         void RefreshFromNetwork();
     }
