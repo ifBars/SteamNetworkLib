@@ -19,6 +19,8 @@ Use lobby-wide and per-player key-value data for lightweight shared state like v
 
 **Use SyncVars** for game state, player data, and most mod data. See [Synchronized Variables (SyncVars)](sync-vars.md) for details.
 
+If you need SyncVar ownership, validation, and prefixes but already have a string protocol, use `RawStringSyncSerializer` with a string `HostSyncVar` or `ClientSyncVar`. It stores the string exactly as provided instead of JSON-quoting it.
+
 ---
 
 ## Important: Use Unique Prefixes
