@@ -147,6 +147,43 @@ public class YourScheduleOneModMain : MelonMod
 
 If multiplayer is optional, guard every sync/send path with your own `multiplayerAvailable` flag and keep local logic active. Do not call lobby, member data, SyncVar, or P2P methods before initialization succeeds.
 
+### Optional runner helper
+
+For the common retry-and-update loop, use `SteamNetworkClientRunner`:
+
+```csharp
+private SteamNetworkClient client;
+private SteamNetworkClientRunner runner;
+
+public override void OnInitializeMelon()
+{
+    client = new SteamNetworkClient(new NetworkRules
+    {
+        EnableRelay = true,
+        AcceptOnlyFriends = false
+    });
+
+    runner = new SteamNetworkClientRunner(client);
+    runner.OnInitialized += RegisterNetworkHandlers;
+    runner.OnInitializationFailed += error =>
+    {
+        MelonLogger.Warning($"Steam networking unavailable: {error?.Message}");
+    };
+}
+
+public override void OnUpdate()
+{
+    runner.Tick();
+}
+
+public override void OnDeinitializeMelon()
+{
+    runner.Dispose();
+}
+```
+
+The runner retries initialization on a timer and calls `ProcessIncomingMessages()` after networking is available. Keep local behavior active while `runner.IsAvailable` is false.
+
 ## Working with Steam IDs
 
 SteamNetworkLib still exposes the native `CSteamID` for Steamworks interop, but common identity lookups also have runtime-neutral helpers:

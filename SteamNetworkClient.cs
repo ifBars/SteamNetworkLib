@@ -24,7 +24,7 @@ namespace SteamNetworkLib
     /// Main entry point for SteamNetworkLib - provides simplified access to all Steam networking features.
     /// Perfect for use in MelonLoader mods that need Steam lobby and P2P functionality.
     /// </summary>
-    public class SteamNetworkClient : IDisposable
+    public class SteamNetworkClient : IDisposable, ISteamNetworkClientLifecycle
     {
         private bool _disposed = false;
         private bool _isInitialized = false;
