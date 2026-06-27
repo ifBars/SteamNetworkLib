@@ -32,13 +32,7 @@ namespace SteamNetworkLib.Utilities
         {
         }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="SteamNetworkClientRunner"/> class with a custom clock.
-        /// </summary>
-        /// <param name="client">The network client lifecycle to run.</param>
-        /// <param name="options">Optional runner configuration.</param>
-        /// <param name="utcNowProvider">Clock used for retry timing.</param>
-        public SteamNetworkClientRunner(
+        internal SteamNetworkClientRunner(
             ISteamNetworkClientLifecycle client,
             SteamNetworkClientRunnerOptions? options,
             Func<DateTime> utcNowProvider)
