@@ -45,9 +45,9 @@ Use the API by ownership and payload shape:
 
 | Need | Recommended API |
 |------|-----------------|
-| One shared host-owned value | `CreateHostSyncVar<T>()` |
-| One value per player | `CreateClientSyncVar<T>()` |
-| A command, request, or event | `TypedP2PMessage<TPayload>` |
+| One shared host-owned value | `client.CreateHostSyncVar("Key", defaultValue, options)` |
+| One value per player | `client.CreateClientSyncVar("Key", defaultValue, options)` |
+| A command, request, or event | A custom `TypedP2PMessage<TPayload>` message type |
 | Large data or files | `SendLargeDataToPlayerAsync()` / `FileTransferMessage` |
 | Mod/version compatibility | `SyncModDataWithAllPlayers()`, `IsModDataCompatible()`, `OnVersionMismatch` |
 | Small raw string flags | Lobby/member data, with a unique key prefix |
@@ -99,9 +99,55 @@ public class PurchaseAccepted
     public int Quantity { get; set; }
     public int NewStock { get; set; }
 }
+
+public class PurchaseRequestMessage : TypedP2PMessage<PurchaseRequest>
+{
+    public override string MessageType => "MYMOD_PURCHASE_REQUEST";
+
+    public PurchaseRequestMessage()
+    {
+    }
+
+    public PurchaseRequestMessage(PurchaseRequest payload)
+        : base(payload)
+    {
+    }
+}
+
+public class PurchaseAcceptedMessage : TypedP2PMessage<PurchaseAccepted>
+{
+    public override string MessageType => "MYMOD_PURCHASE_ACCEPTED";
+
+    public PurchaseAcceptedMessage()
+    {
+    }
+
+    public PurchaseAcceptedMessage(PurchaseAccepted payload)
+        : base(payload)
+    {
+    }
+}
+
+client.RegisterMessageHandler<PurchaseRequestMessage>((message, senderId) =>
+{
+    PurchaseRequest request = message.Payload;
+    if (!client.IsHost || !CanAcceptPurchase(senderId, request))
+    {
+        return;
+    }
+
+    var accepted = ApplyPurchase(request);
+    _ = client.BroadcastMessageAsync(new PurchaseAcceptedMessage(accepted));
+});
+
+await client.SendMessageToPlayerAsync(hostId, new PurchaseRequestMessage(new PurchaseRequest
+{
+    ItemId = "og-kush",
+    Quantity = 2
+}));
 ```
 
-The client sends `PurchaseRequest` to the host. The host validates money, stock, distance, and game rules. Only then does the host broadcast `PurchaseAccepted` or update a `HostSyncVar<T>` containing the resulting stock count.
+The client sends `PurchaseRequestMessage` to the host. The host validates money, stock, distance, and game rules. Only then does the host broadcast `PurchaseAcceptedMessage` or update a `HostSyncVar<T>` containing the resulting stock count.
 
 Do not let every client directly write the shared stock value. That creates conflicts and gives clients authority over state they do not own.
 
