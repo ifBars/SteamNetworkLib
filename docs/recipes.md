@@ -180,6 +180,9 @@ labels.OnValueChanged += (oldValue, newValue) =>
     ApplyLabels(newValue.Labels);
 };
 
+// Apply the value that may have loaded before the handler was attached.
+ApplyLabels(labels.Value.Labels);
+
 if (client.IsHost)
 {
     labels.Value = new LabelSnapshot
