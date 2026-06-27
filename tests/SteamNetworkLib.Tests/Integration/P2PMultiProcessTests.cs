@@ -103,6 +103,29 @@ namespace SteamNetworkLib.Tests.Integration
             _output.WriteLine("  Note: Custom messages are sent but not received due to hardcoded switch in ProcessSteamNetworkLibMessage");
         }
 
+        [Fact(Skip = "Goldberg P2P smoke scenario is implemented, but the current local Goldberg setup fails existing baseline P2P tests before request/response logic.")]
+        public async Task RequestResponse_Checkout_ClientReceivesCorrelatedHostResponse()
+        {
+            _output.WriteLine("=== Test: correlated request/response checkout ===");
+
+            var testId = Guid.NewGuid().ToString("N");
+            var (hostDir, clientDir, sharedDir) = SetupTestDirectories(testId);
+
+            var hostSteamId = 76561197960265734UL;
+            var clientSteamId = 76561197960265735UL;
+
+            var (hostExitCode, clientExitCode) = await RunHostAndClientAsync(
+                hostDir, clientDir, sharedDir,
+                hostSteamId, clientSteamId,
+                "direct_request_response_checkout",
+                47606, 47607);
+
+            hostExitCode.Should().Be(0, "host should handle the checkout request successfully");
+            clientExitCode.Should().Be(0, "client should receive the correlated checkout response");
+
+            _output.WriteLine("Test passed: request/response helper completed through Goldberg P2P");
+        }
+
         private (string hostDir, string clientDir, string sharedDir) SetupTestDirectories(string testId)
         {
             _testDir = Path.Combine(Path.GetTempPath(), "SteamNetworkLib.P2P", testId);

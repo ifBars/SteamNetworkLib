@@ -938,6 +938,27 @@ namespace SteamNetworkLib
         }
 
         /// <summary>
+        /// Creates a helper for correlated P2P request/response messages.
+        /// </summary>
+        /// <typeparam name="TRequest">The request message type.</typeparam>
+        /// <typeparam name="TResponse">The response message type.</typeparam>
+        /// <param name="defaultTimeout">Optional default timeout for requests sent by the helper.</param>
+        /// <returns>A request/response helper bound to this client.</returns>
+        /// <remarks>
+        /// Use this for host-approved actions such as checkout requests, permission checks,
+        /// lock acquisition, and other flows where the caller needs a single answer from a
+        /// specific peer. Dispose the returned helper when the mod unloads or no longer uses
+        /// the message pair.
+        /// </remarks>
+        public P2PRequestResponseClient<TRequest, TResponse> CreateRequestResponseClient<TRequest, TResponse>(TimeSpan? defaultTimeout = null)
+            where TRequest : P2PMessage, IP2PCorrelatedMessage, new()
+            where TResponse : P2PMessage, IP2PCorrelatedMessage, new()
+        {
+            EnsureInitialized();
+            return new P2PRequestResponseClient<TRequest, TResponse>(this, defaultTimeout);
+        }
+
+        /// <summary>
         /// Processes incoming P2P packets. Call this regularly (e.g., in Update()).
         /// </summary>
         /// <remarks>

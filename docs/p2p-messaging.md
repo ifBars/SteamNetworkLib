@@ -126,6 +126,114 @@ if (client.TryInitialize())
 
 `RegisterMessageHandler<T>()` also registers the custom message type with SteamNetworkLib's serializer. If a peer sends a message type that has not been registered locally, the raw packet cannot be routed to your handler.
 
+## Correlated request/response messages
+
+Use `P2PRequestResponseClient<TRequest, TResponse>` when a player needs one answer from a specific peer. The common case is a client asking the host to approve an action, such as checkout, permission checks, lock acquisition, or a host-authored state change.
+
+The helper:
+
+- Assigns a `RequestId` when the request does not already have one.
+- Registers the response message handler.
+- Tracks pending responses by `RequestId`.
+- Times out requests that never receive a matching response.
+- Provides a responder wrapper that copies the request ID onto the response.
+
+### Define request and response messages
+
+```csharp
+public class CheckoutRequestPayload
+{
+    public string ItemId { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+}
+
+public class CheckoutResponsePayload
+{
+    public string ReservationId { get; set; } = string.Empty;
+    public int ApprovedQuantity { get; set; }
+}
+
+public class CheckoutRequestMessage : P2PRequestMessage<CheckoutRequestPayload>
+{
+    public override string MessageType => "MYMOD_CHECKOUT_REQUEST";
+
+    public CheckoutRequestMessage()
+    {
+    }
+
+    public CheckoutRequestMessage(CheckoutRequestPayload payload)
+        : base(payload)
+    {
+    }
+}
+
+public class CheckoutResponseMessage : P2PResponseMessage<CheckoutResponsePayload>
+{
+    public override string MessageType => "MYMOD_CHECKOUT_RESPONSE";
+
+    public CheckoutResponseMessage()
+    {
+    }
+
+    public CheckoutResponseMessage(CheckoutResponsePayload payload)
+        : base(payload)
+    {
+    }
+}
+```
+
+### Host: register a responder
+
+```csharp
+private P2PRequestResponseClient<CheckoutRequestMessage, CheckoutResponseMessage>? checkoutRpc;
+
+private void RegisterNetworking()
+{
+    checkoutRpc = client.CreateRequestResponseClient<CheckoutRequestMessage, CheckoutResponseMessage>(
+        TimeSpan.FromSeconds(10));
+
+    checkoutRpc.RegisterResponder((request, sender) =>
+    {
+        int approved = Math.Min(request.Body.Quantity, GetAvailableStock(request.Body.ItemId));
+
+        return new CheckoutResponseMessage(new CheckoutResponsePayload
+        {
+            ReservationId = Guid.NewGuid().ToString("N"),
+            ApprovedQuantity = approved
+        })
+        {
+            Success = approved > 0,
+            Error = approved > 0 ? string.Empty : "Out of stock"
+        };
+    });
+}
+```
+
+### Client: send and await the response
+
+```csharp
+var checkoutRpc = client.CreateRequestResponseClient<CheckoutRequestMessage, CheckoutResponseMessage>(
+    TimeSpan.FromSeconds(10));
+
+var response = await checkoutRpc.SendRequestAsync(hostId, new CheckoutRequestMessage(
+    new CheckoutRequestPayload
+    {
+        ItemId = "pseudo",
+        Quantity = 12
+    }));
+
+if (response.Success)
+{
+    ApplyApprovedCheckout(response.Body.ReservationId, response.Body.ApprovedQuantity);
+}
+else
+{
+    MelonLogger.Warning($"Checkout denied: {response.Error}");
+}
+```
+
+Keep request handlers host-authoritative when they mutate shared state. Clients should send intent (`ItemId`, quantity, stable slot IDs), and the host should validate the current game state before replying.
+
 ## Sending custom messages manually
 
 Create a type by inheriting `P2PMessage` and implement `MessageType`, `Serialize`, `Deserialize`.

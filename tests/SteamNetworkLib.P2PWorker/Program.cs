@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SteamNetworkLib;
 using SteamNetworkLib.Models;
+using SteamNetworkLib.Utilities;
 using Steamworks;
 
 namespace SteamNetworkLib.P2PWorker
@@ -182,6 +183,12 @@ listen_port={_listenPort}
         {
             try
             {
+                if (_testCase == "direct_request_response_checkout")
+                {
+                    await RunDirectHostAsync();
+                    return;
+                }
+
                 // Create lobby
                 Console.WriteLine($"[{_playerName}] Creating lobby...");
                 var lobby = await _client!.CreateLobbyAsync(ELobbyType.k_ELobbyTypePrivate, 4);
@@ -247,6 +254,12 @@ listen_port={_listenPort}
         {
             try
             {
+                if (_testCase == "direct_request_response_checkout")
+                {
+                    await RunDirectClientAsync();
+                    return;
+                }
+
                 // Wait for lobby.txt
                 Console.WriteLine($"[{_playerName}] Waiting for lobby info...");
                 var lobbyFile = Path.Combine(_sharedDir!, "lobby.txt");
@@ -315,6 +328,90 @@ listen_port={_listenPort}
             }
         }
 
+        static async Task RunDirectHostAsync()
+        {
+            Console.WriteLine($"[{_playerName}] Starting direct P2P host mode...");
+
+            var hostReadyFile = Path.Combine(_sharedDir!, "host_ready.json");
+            var hostReady = new
+            {
+                HostSteamId = _steamId,
+                HostName = _playerName,
+                Timestamp = DateTime.UtcNow
+            };
+            File.WriteAllText(hostReadyFile, JsonSerializer.Serialize(hostReady));
+
+            var clientJoinedFile = Path.Combine(_sharedDir!, "client_joined.json");
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+
+            while (!File.Exists(clientJoinedFile) && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(100);
+            }
+
+            if (!File.Exists(clientJoinedFile))
+            {
+                Console.Error.WriteLine($"[{_playerName}] Direct client ready timeout");
+                _exitCode = 1;
+                return;
+            }
+
+            var clientInfo = JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(clientJoinedFile));
+            var clientSteamId = new CSteamID(clientInfo.GetProperty("ClientSteamId").GetUInt64());
+
+            await TestRequestResponseCheckout_Host(
+                clientSteamId,
+                Path.Combine(_sharedDir!, "host_responder_ready.json"));
+        }
+
+        static async Task RunDirectClientAsync()
+        {
+            Console.WriteLine($"[{_playerName}] Starting direct P2P client mode...");
+
+            var hostReadyFile = Path.Combine(_sharedDir!, "host_ready.json");
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+
+            while (!File.Exists(hostReadyFile) && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(100);
+            }
+
+            if (!File.Exists(hostReadyFile))
+            {
+                Console.Error.WriteLine($"[{_playerName}] Direct host ready timeout");
+                _exitCode = 1;
+                return;
+            }
+
+            var hostInfo = JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(hostReadyFile));
+            var hostSteamId = new CSteamID(hostInfo.GetProperty("HostSteamId").GetUInt64());
+
+            var clientJoinedFile = Path.Combine(_sharedDir!, "client_joined.json");
+            var clientJoined = new
+            {
+                ClientSteamId = _steamId,
+                ClientName = _playerName,
+                Timestamp = DateTime.UtcNow
+            };
+            File.WriteAllText(clientJoinedFile, JsonSerializer.Serialize(clientJoined));
+
+            var responderReadyFile = Path.Combine(_sharedDir!, "host_responder_ready.json");
+            deadline = DateTime.UtcNow.AddSeconds(30);
+            while (!File.Exists(responderReadyFile) && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(100);
+            }
+
+            if (!File.Exists(responderReadyFile))
+            {
+                Console.Error.WriteLine($"[{_playerName}] Direct host responder ready timeout");
+                _exitCode = 1;
+                return;
+            }
+
+            await TestRequestResponseCheckout_Client(hostSteamId);
+        }
+
         static async Task RunTestCaseHost(CSteamID clientId)
         {
             Console.WriteLine($"[{_playerName}] Running test case: {_testCase} (host)");
@@ -331,6 +428,10 @@ listen_port={_listenPort}
                     
                 case "custom_message_dropped":
                     await TestCustomMessageDropped_Host(clientId);
+                    break;
+
+                case "request_response_checkout":
+                    await TestRequestResponseCheckout_Host(clientId);
                     break;
                     
                 default:
@@ -356,6 +457,10 @@ listen_port={_listenPort}
                     
                 case "custom_message_dropped":
                     await TestCustomMessageDropped_Client(hostId);
+                    break;
+
+                case "request_response_checkout":
+                    await TestRequestResponseCheckout_Client(hostId);
                     break;
                     
                 default:
@@ -540,6 +645,84 @@ listen_port={_listenPort}
             await Task.Delay(2000);
         }
 
+        static async Task TestRequestResponseCheckout_Host(CSteamID clientId, string? responderReadyFile = null)
+        {
+            var handledRequest = false;
+            string handledRequestId = string.Empty;
+
+            using var exchange = _client!.CreateRequestResponseClient<CheckoutRequestMessage, CheckoutResponseMessage>(
+                TimeSpan.FromSeconds(10));
+
+            exchange.RegisterResponder((request, senderId) =>
+            {
+                Console.WriteLine($"[{_playerName}] Received checkout request {request.RequestId} from {senderId.m_SteamID}");
+                handledRequest = true;
+                handledRequestId = request.RequestId;
+
+                var approvedQuantity = Math.Min(request.Body.Quantity, 7);
+                return new CheckoutResponseMessage(new CheckoutResponsePayload
+                {
+                    ReservationId = $"reservation-{request.Body.ItemId}-{approvedQuantity}",
+                    ApprovedQuantity = approvedQuantity
+                })
+                {
+                    Success = true
+                };
+            });
+
+            if (!string.IsNullOrWhiteSpace(responderReadyFile))
+            {
+                File.WriteAllText(responderReadyFile, DateTime.UtcNow.ToString("O"));
+            }
+
+            var deadline = DateTime.UtcNow.AddSeconds(15);
+            while (!handledRequest && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(100);
+            }
+
+            if (handledRequest && !string.IsNullOrWhiteSpace(handledRequestId))
+            {
+                Console.WriteLine($"[{_playerName}] Test passed: handled request {handledRequestId}");
+                _exitCode = 0;
+            }
+            else
+            {
+                Console.Error.WriteLine($"[{_playerName}] Test failed: request responder was not called");
+                _exitCode = 1;
+            }
+        }
+
+        static async Task TestRequestResponseCheckout_Client(CSteamID hostId)
+        {
+            using var exchange = _client!.CreateRequestResponseClient<CheckoutRequestMessage, CheckoutResponseMessage>(
+                TimeSpan.FromSeconds(10));
+
+            var request = new CheckoutRequestMessage(new CheckoutRequestPayload
+            {
+                ItemId = "pseudo",
+                Quantity = 12
+            });
+
+            Console.WriteLine($"[{_playerName}] Sending checkout request to host...");
+            var response = await exchange.SendRequestAsync(hostId, request, TimeSpan.FromSeconds(10));
+
+            if (response.RequestId == request.RequestId &&
+                response.Success &&
+                response.Body.ReservationId == "reservation-pseudo-7" &&
+                response.Body.ApprovedQuantity == 7)
+            {
+                Console.WriteLine($"[{_playerName}] Test passed: received correlated checkout response {response.RequestId}");
+                _exitCode = 0;
+            }
+            else
+            {
+                Console.Error.WriteLine($"[{_playerName}] Test failed: unexpected checkout response");
+                Console.Error.WriteLine($"[{_playerName}] RequestId={response.RequestId}, Success={response.Success}, Reservation={response.Body.ReservationId}, Quantity={response.Body.ApprovedQuantity}");
+                _exitCode = 1;
+            }
+        }
+
         #endregion
 
         /// <summary>
@@ -571,6 +754,46 @@ listen_port={_listenPort}
                     SenderId = deserialized.SenderId;
                     Timestamp = deserialized.Timestamp;
                 }
+            }
+        }
+
+        private class CheckoutRequestPayload
+        {
+            public string ItemId { get; set; } = string.Empty;
+            public int Quantity { get; set; }
+        }
+
+        private class CheckoutResponsePayload
+        {
+            public string ReservationId { get; set; } = string.Empty;
+            public int ApprovedQuantity { get; set; }
+        }
+
+        private class CheckoutRequestMessage : P2PRequestMessage<CheckoutRequestPayload>
+        {
+            public override string MessageType => "CHECKOUT_REQUEST";
+
+            public CheckoutRequestMessage()
+            {
+            }
+
+            public CheckoutRequestMessage(CheckoutRequestPayload payload)
+                : base(payload)
+            {
+            }
+        }
+
+        private class CheckoutResponseMessage : P2PResponseMessage<CheckoutResponsePayload>
+        {
+            public override string MessageType => "CHECKOUT_RESPONSE";
+
+            public CheckoutResponseMessage()
+            {
+            }
+
+            public CheckoutResponseMessage(CheckoutResponsePayload payload)
+                : base(payload)
+            {
             }
         }
     }
