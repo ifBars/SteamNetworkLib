@@ -6,12 +6,12 @@ using Xunit;
 
 namespace SteamNetworkLib.Tests.Unit
 {
-    public class HostSyncedAttributeTests
+    public class NetworkSyncAttributeTests
     {
         [Fact]
         public void Discover_UsesMemberNameWhenNoExplicitKey()
         {
-            var members = HostSyncedBinder.Discover(typeof(ExampleState));
+            var members = NetworkSyncBinder.Discover(typeof(ExampleState));
 
             members.Should().ContainSingle(member =>
                 member.MemberName == nameof(ExampleState.RoundNumber) &&
@@ -23,7 +23,7 @@ namespace SteamNetworkLib.Tests.Unit
         [Fact]
         public void Discover_UsesExplicitKeyWhenProvided()
         {
-            var members = HostSyncedBinder.Discover(typeof(ExampleState));
+            var members = NetworkSyncBinder.Discover(typeof(ExampleState));
 
             members.Should().ContainSingle(member =>
                 member.MemberName == nameof(ExampleState.Phase) &&
@@ -34,7 +34,7 @@ namespace SteamNetworkLib.Tests.Unit
         [Fact]
         public void Discover_IncludesPrivateFields()
         {
-            var members = HostSyncedBinder.Discover(typeof(ExampleState));
+            var members = NetworkSyncBinder.Discover(typeof(ExampleState));
 
             members.Should().ContainSingle(member =>
                 member.MemberName == "stockCount" &&
@@ -45,7 +45,7 @@ namespace SteamNetworkLib.Tests.Unit
         [Fact]
         public void DiscoverSynced_IncludesClientSyncedMembers()
         {
-            var members = HostSyncedBinder.DiscoverSynced(typeof(ExampleState));
+            var members = NetworkSyncBinder.DiscoverSynced(typeof(ExampleState));
 
             members.Should().ContainSingle(member =>
                 member.MemberName == nameof(ExampleState.Ready) &&
@@ -57,7 +57,7 @@ namespace SteamNetworkLib.Tests.Unit
         [Fact]
         public void Discover_DoesNotIncludeClientSyncedMembers()
         {
-            var members = HostSyncedBinder.Discover(typeof(ExampleState));
+            var members = NetworkSyncBinder.Discover(typeof(ExampleState));
 
             members.Should().NotContain(member => member.MemberName == nameof(ExampleState.Ready));
         }
@@ -65,7 +65,7 @@ namespace SteamNetworkLib.Tests.Unit
         [Fact]
         public void DiscoverSynced_RejectsMembersWithBothOwnershipAttributes()
         {
-            Action act = () => HostSyncedBinder.DiscoverSynced(typeof(ConflictingState));
+            Action act = () => NetworkSyncBinder.DiscoverSynced(typeof(ConflictingState));
 
             act.Should().Throw<InvalidOperationException>()
                 .WithMessage("*cannot be both host-synced and client-synced*");
@@ -74,7 +74,7 @@ namespace SteamNetworkLib.Tests.Unit
         [Fact]
         public void Discover_RejectsReadOnlyFields()
         {
-            Action act = () => HostSyncedBinder.Discover(typeof(ReadOnlyState));
+            Action act = () => NetworkSyncBinder.Discover(typeof(ReadOnlyState));
 
             act.Should().Throw<InvalidOperationException>()
                 .WithMessage("*must be writable*");
@@ -83,10 +83,19 @@ namespace SteamNetworkLib.Tests.Unit
         [Fact]
         public void Discover_RejectsGetOnlyProperties()
         {
-            Action act = () => HostSyncedBinder.Discover(typeof(GetOnlyState));
+            Action act = () => NetworkSyncBinder.Discover(typeof(GetOnlyState));
 
             act.Should().Throw<InvalidOperationException>()
                 .WithMessage("*must have a setter*");
+        }
+
+        [Fact]
+        public void DiscoverSynced_RejectsDuplicateKeys()
+        {
+            Action act = () => NetworkSyncBinder.DiscoverSynced(typeof(DuplicateKeyState));
+
+            act.Should().Throw<InvalidOperationException>()
+                .WithMessage("*Synced key 'shared_key' is used by more than one member*");
         }
 
         private sealed class ExampleState
@@ -125,6 +134,15 @@ namespace SteamNetworkLib.Tests.Unit
             [HostSynced]
             [ClientSynced]
             public int Value { get; set; }
+        }
+
+        private sealed class DuplicateKeyState
+        {
+            [HostSynced("shared_key")]
+            public int HostValue { get; set; }
+
+            [ClientSynced("shared_key")]
+            public int ClientValue { get; set; }
         }
     }
 }

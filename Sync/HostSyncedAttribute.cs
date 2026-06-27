@@ -8,7 +8,7 @@ namespace SteamNetworkLib.Sync
     /// <remarks>
     /// <para>
     /// Members marked with this attribute can be bound with
-    /// <see cref="HostSyncedBinder.BindHostSynced(SteamNetworkLib.SteamNetworkClient, object, NetworkSyncOptions?)"/>.
+    /// <see cref="NetworkSyncBinder.BindHostSynced(SteamNetworkLib.SteamNetworkClient, object, NetworkSyncOptions?)"/>.
     /// The binder creates a regular <see cref="HostSyncVar{T}"/> for each marked member, so the normal
     /// host-only authority, serialization, prefix, and rate-limit behavior still applies.
     /// </para>

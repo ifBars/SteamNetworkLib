@@ -268,7 +268,7 @@ This example includes:
 - Custom validators with complex rules
 - Interactive hotkeys to test each feature
 
-## Attribute Binding POC
+## Attribute Binding
 
 For values that already live as fields or properties on your mod state object, you can mark them with `[HostSynced]` or `[ClientSynced]` and bind them to regular SyncVar instances:
 
@@ -288,7 +288,7 @@ public sealed class EventState
 }
 
 private EventState state = new EventState();
-private HostSyncedBindingCollection? synced;
+private NetworkSyncBindingCollection? synced;
 
 private void CreateSyncVars()
 {

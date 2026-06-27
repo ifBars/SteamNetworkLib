@@ -3,13 +3,13 @@ using System.Reflection;
 
 namespace SteamNetworkLib.Sync
 {
-    internal sealed class HostSyncedMemberAccessor<T>
+    internal sealed class NetworkSyncedMemberAccessor<T>
     {
         private readonly object _target;
         private readonly FieldInfo? _field;
         private readonly PropertyInfo? _property;
 
-        public HostSyncedMemberAccessor(object target, MemberInfo member)
+        public NetworkSyncedMemberAccessor(object target, MemberInfo member)
         {
             _target = target ?? throw new ArgumentNullException(nameof(target));
 
@@ -25,7 +25,7 @@ namespace SteamNetworkLib.Sync
                 return;
             }
 
-            throw new ArgumentException("Host-synced member must be a field or property.", nameof(member));
+            throw new ArgumentException("Synced member must be a field or property.", nameof(member));
         }
 
         public T GetValue()

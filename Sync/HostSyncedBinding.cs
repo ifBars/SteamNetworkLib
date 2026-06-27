@@ -1,11 +1,11 @@
 namespace SteamNetworkLib.Sync
 {
-    internal sealed class HostSyncedBinding<T> : IHostSyncedBinding
+    internal sealed class HostSyncedBinding<T> : INetworkSyncedBinding
     {
         private readonly HostSyncVar<T> _syncVar;
-        private readonly HostSyncedMemberAccessor<T> _accessor;
+        private readonly NetworkSyncedMemberAccessor<T> _accessor;
 
-        public HostSyncedBinding(HostSyncVar<T> syncVar, HostSyncedMemberAccessor<T> accessor)
+        public HostSyncedBinding(HostSyncVar<T> syncVar, NetworkSyncedMemberAccessor<T> accessor)
         {
             _syncVar = syncVar;
             _accessor = accessor;

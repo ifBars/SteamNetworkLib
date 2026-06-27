@@ -7,7 +7,7 @@ namespace SteamNetworkLib.Sync
     /// </summary>
     /// <remarks>
     /// Members marked with this attribute can be bound with
-    /// <see cref="HostSyncedBinder.BindSynced(SteamNetworkLib.SteamNetworkClient, object, NetworkSyncOptions?)"/>.
+    /// <see cref="NetworkSyncBinder.BindSynced(SteamNetworkLib.SteamNetworkClient, object, NetworkSyncOptions?)"/>.
     /// The binder creates a regular <see cref="ClientSyncVar{T}"/> for each marked member, so each
     /// client owns its own value while other lobby members can read it through the SyncVar API.
     /// </remarks>

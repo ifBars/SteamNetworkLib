@@ -6,12 +6,12 @@ namespace SteamNetworkLib.Sync
     /// <summary>
     /// Tracks active bindings created from <see cref="HostSyncedAttribute"/> or <see cref="ClientSyncedAttribute"/> members.
     /// </summary>
-    public sealed class HostSyncedBindingCollection : IDisposable
+    public sealed class NetworkSyncBindingCollection : IDisposable
     {
-        private readonly IReadOnlyList<IHostSyncedBinding> _bindings;
+        private readonly IReadOnlyList<INetworkSyncedBinding> _bindings;
         private bool _disposed;
 
-        internal HostSyncedBindingCollection(IReadOnlyList<IHostSyncedBinding> bindings)
+        internal NetworkSyncBindingCollection(IReadOnlyList<INetworkSyncedBinding> bindings)
         {
             _bindings = bindings;
         }
@@ -74,12 +74,12 @@ namespace SteamNetworkLib.Sync
         {
             if (_disposed)
             {
-                throw new ObjectDisposedException(nameof(HostSyncedBindingCollection));
+                throw new ObjectDisposedException(nameof(NetworkSyncBindingCollection));
             }
         }
     }
 
-    internal interface IHostSyncedBinding : IDisposable
+    internal interface INetworkSyncedBinding : IDisposable
     {
         void SyncFromTarget();
 
