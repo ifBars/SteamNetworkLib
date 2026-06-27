@@ -268,6 +268,43 @@ This example includes:
 - Custom validators with complex rules
 - Interactive hotkeys to test each feature
 
+## Attribute Binding POC
+
+For host-owned values that already live as fields or properties on your mod state object, you can mark them with `[HostSynced]` and bind them to regular `HostSyncVar<T>` instances:
+
+```csharp
+public sealed class EventState
+{
+    [HostSynced]
+    public int RoundNumber { get; set; } = 1;
+
+    [HostSynced("event_phase")]
+    public string Phase { get; set; } = "setup";
+}
+
+private EventState state = new EventState();
+private HostSyncedBindingCollection? hostSynced;
+
+private void CreateSyncVars()
+{
+    var options = new NetworkSyncOptions { KeyPrefix = "MyMod_" };
+    hostSynced = client.BindHostSynced(state, options);
+}
+
+private void AdvanceRound()
+{
+    if (!client.IsHost)
+    {
+        return;
+    }
+
+    state.RoundNumber++;
+    hostSynced!.SyncFromTarget();
+}
+```
+
+This is a convenience layer over `HostSyncVar<T>`, not a different authority model. The host still owns writes, clients still receive updates, and non-host writes are ignored by the underlying SyncVar.
+
 ## Custom Serialization
 
 Implement `ISyncSerializer` for custom serialization:
