@@ -67,7 +67,7 @@ namespace SteamNetworkLib.Utilities
         /// <summary>
         /// Gets a value indicating whether networking is initialized and available.
         /// </summary>
-        public bool IsAvailable => _client.IsInitialized;
+        public bool IsAvailable => !_disposed && _client.IsInitialized;
 
         /// <summary>
         /// Advances the runner by one update tick.

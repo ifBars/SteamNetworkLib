@@ -13,7 +13,7 @@ namespace SteamNetworkLib.Tests.Unit
         {
             var now = new DateTime(2026, 6, 27, 12, 0, 0, DateTimeKind.Utc);
             var client = new FakeLifecycleClient();
-            client.InitializeResults.Enqueue(true);
+            client.InitializeResults.Enqueue((true, null));
             var runner = new SteamNetworkClientRunner(client, null, () => now);
             var initializedCount = 0;
             runner.OnInitialized += () => initializedCount++;
@@ -30,14 +30,24 @@ namespace SteamNetworkLib.Tests.Unit
         {
             var now = new DateTime(2026, 6, 27, 12, 0, 0, DateTimeKind.Utc);
             var client = new FakeLifecycleClient();
-            client.InitializeResults.Enqueue(false);
-            client.InitializeResults.Enqueue(true);
+            var failureError = new SteamNetworkException(
+                "Steam unavailable",
+                SteamNetworkErrorKind.SteamUnavailable,
+                operation: "test",
+                isRetryable: true);
+            client.InitializeResults.Enqueue((false, failureError));
+            client.InitializeResults.Enqueue((true, null));
             var runner = new SteamNetworkClientRunner(
                 client,
                 new SteamNetworkClientRunnerOptions { RetryInterval = TimeSpan.FromSeconds(2) },
                 () => now);
             var failureCount = 0;
-            runner.OnInitializationFailed += _ => failureCount++;
+            SteamNetworkException? observedError = null;
+            runner.OnInitializationFailed += error =>
+            {
+                failureCount++;
+                observedError = error;
+            };
 
             runner.Tick().Should().BeFalse();
             runner.Tick().Should().BeFalse();
@@ -48,6 +58,7 @@ namespace SteamNetworkLib.Tests.Unit
 
             client.InitializeAttempts.Should().Be(2);
             failureCount.Should().Be(1);
+            observedError.Should().BeSameAs(failureError);
         }
 
         [Fact]
@@ -81,20 +92,23 @@ namespace SteamNetworkLib.Tests.Unit
         [Fact]
         public void Dispose_DisposesWrappedClient()
         {
-            var client = new FakeLifecycleClient();
+            var client = new FakeLifecycleClient { IsInitializedValue = true };
             var runner = new SteamNetworkClientRunner(client);
+            runner.IsAvailable.Should().BeTrue();
 
             runner.Dispose();
 
             client.Disposed.Should().BeTrue();
+            client.IsInitialized.Should().BeFalse();
+            runner.IsAvailable.Should().BeFalse();
             Action tick = () => runner.Tick();
             tick.Should().Throw<ObjectDisposedException>();
         }
 
         private sealed class FakeLifecycleClient : ISteamNetworkClientLifecycle
         {
-            public System.Collections.Generic.Queue<bool> InitializeResults { get; } =
-                new System.Collections.Generic.Queue<bool>();
+            public System.Collections.Generic.Queue<(bool Success, SteamNetworkException? Error)> InitializeResults { get; } =
+                new System.Collections.Generic.Queue<(bool Success, SteamNetworkException? Error)>();
 
             public bool IsInitializedValue { get; set; }
             public int InitializeAttempts { get; private set; }
@@ -107,11 +121,16 @@ namespace SteamNetworkLib.Tests.Unit
             public bool TryInitialize(out SteamNetworkException? error)
             {
                 InitializeAttempts++;
-                error = null;
 
-                var result = InitializeResults.Count == 0 || InitializeResults.Dequeue();
-                IsInitializedValue = result;
-                return result;
+                if (InitializeResults.Count == 0)
+                {
+                    throw new InvalidOperationException("Unexpected initialization attempt.");
+                }
+
+                var result = InitializeResults.Dequeue();
+                error = result.Error;
+                IsInitializedValue = result.Success;
+                return result.Success;
             }
 
             public void ProcessIncomingMessages()
@@ -126,6 +145,7 @@ namespace SteamNetworkLib.Tests.Unit
             public void Dispose()
             {
                 Disposed = true;
+                IsInitializedValue = false;
             }
         }
     }

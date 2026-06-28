@@ -345,6 +345,7 @@ namespace SteamNetworkLib
             }
             catch (Exception ex)
             {
+                ResetNetworkingComponents();
                 throw new SteamNetworkException(
                     $"Failed to initialize SteamNetworkClient: {ex.Message}",
                     ex,
@@ -1942,6 +1943,32 @@ namespace SteamNetworkLib
             OnVersionMismatch = null;
         }
 
+        private void ResetNetworkingComponents()
+        {
+            _isInitialized = false;
+
+            try
+            {
+                P2PManager?.Dispose();
+                MemberData?.Dispose();
+                LobbyData?.Dispose();
+                LobbyManager?.Dispose();
+                _dedicatedBridge?.Dispose();
+            }
+            finally
+            {
+                P2PManager = null;
+                MemberData = null;
+                LobbyData = null;
+                LobbyManager = null;
+                _dedicatedBridge = null;
+                _sessionMode = NetworkSessionMode.None;
+                _lastDedicatedBridgeAttachAttemptUtc = DateTime.MinValue;
+                _lastDedicatedRegisterAttemptUtc = DateTime.MinValue;
+                ClearVirtualSessionState(emitLobbyLeft: false);
+            }
+        }
+
         /// <summary>
         /// Ensures that the client is initialized before performing operations.
         /// </summary>
@@ -1973,13 +2000,7 @@ namespace SteamNetworkLib
                 UnsubscribeFromEvents();
 
                 // Then dispose components
-                P2PManager?.Dispose();
-                MemberData?.Dispose();
-                LobbyData?.Dispose();
-                LobbyManager?.Dispose();
-                _dedicatedBridge?.Dispose();
-                _dedicatedBridge = null;
-                ClearVirtualSessionState(emitLobbyLeft: false);
+                ResetNetworkingComponents();
             }
             catch (Exception ex)
             {
