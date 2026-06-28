@@ -10,7 +10,7 @@ Use this page as a decision guide before choosing raw lobby data, SyncVars, or P
 | --- | --- | --- |
 | Optional multiplayer adapter with local fallback | BetterStacksF, AutoRestock, ConsoleForAll | Initialize with retry, keep local behavior active, call `ProcessIncomingMessages()` only after ready |
 | Host-owned config or state snapshot | BetterStacksF, SimpleLabels, Time Never Stops | `HostSyncVar<T>` for typed state, raw lobby data for legacy strings |
-| Client asks host to perform an action | ConsoleForAll, OTC-style host transactions, restock flows | Typed P2P request/response with a `RequestId`, timeout, and host validation |
+| Client asks host to perform an action | ConsoleForAll, OTC-style host transactions, restock flows | Typed P2P request/response with a `RequestId`, mod-local timeout tracking, and host validation |
 | Full snapshot plus small deltas | SimpleLabels-style label state | Host publishes full state; P2P or SyncVar deltas update the hot path |
 | Raw string compatibility payloads | OTC-style pipe-delimited state | `NetworkSyncOptions.Serializer` with a raw string serializer when exact formatting matters |
 | Member-data polling fallback | OTC and label sync request flows | Poll `Refresh()`/`GetAllValues()` when Steam lobby callbacks are unreliable in the target runtime |
@@ -113,6 +113,8 @@ state.OnValueChanged += (oldValue, newValue) =>
 {
     ApplySnapshot(newValue);
 };
+
+ApplySnapshot(state.Value);
 ```
 
 Do not sync Unity objects or live game references. Sync stable IDs, quantities, coordinates, and versioned DTOs, then resolve runtime objects locally.
@@ -123,7 +125,7 @@ When a client wants to mutate shared game state, send intent to the host. The ho
 
 Request payloads should include:
 
-- A stable request ID or use the request/response helper.
+- A stable request ID so the sender can match a host response or timeout.
 - Actor identity if the host needs to verify ownership.
 - Stable target identifiers such as item IDs, slot IDs, property IDs, or entity GUIDs.
 - Small primitive values only.

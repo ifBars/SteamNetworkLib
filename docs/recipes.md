@@ -113,12 +113,26 @@ public class CheckoutRequestPayload
     public int Quantity { get; set; }
 }
 
+// Host-side handler.
 client.RegisterMessageHandler<CheckoutRequest>((message, sender) =>
 {
+    if (!client.IsHost)
+    {
+        return;
+    }
+
     var request = message.Payload;
     int approved = Math.Min(request.Quantity, GetAvailableStock(request.ItemId));
     ApplyHostApprovedCheckout(sender, request.ItemId, approved);
 });
+
+// Client-side request.
+await client.SendMessageToPlayerAsync(hostId, new CheckoutRequest(new CheckoutRequestPayload
+{
+    RequestId = Guid.NewGuid().ToString("N"),
+    ItemId = "pseudo",
+    Quantity = 10
+}));
 ```
 
 The client sends intent only. The host owns final state and publishes the result through a host snapshot, SyncVar, or explicit response message.
@@ -233,8 +247,9 @@ Keep this poll slow. It is a reliability fallback for important state, not a per
 ```csharp
 var evt = new EventMessage
 {
-    EventType = "give_item",
-    Payload = "soil"
+    EventType = "game",
+    EventName = "give_item",
+    EventData = "soil"
 };
 await client.SendMessageToPlayerAsync(targetId, evt);
 ```
@@ -265,7 +280,7 @@ for (int i = 0; i < total; i++)
         IsFileData = true,
         ChunkData = slice
     };
-    await client.SendMessageToPlayerAsync(hostId, msg, channel: 1);
+    await client.SendMessageToPlayerAsync(hostId, msg);
 }
 ```
 
