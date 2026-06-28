@@ -298,6 +298,25 @@ var options = new NetworkSyncOptions { Serializer = new MySerializer() };
 var data = client.CreateHostSyncVar("Data", myValue, options);
 ```
 
+### Raw string payloads
+
+Use `RawStringSyncSerializer` when the value is already encoded and must be stored exactly as-is. This is useful for compatibility with existing lobby-data formats, pipe-delimited protocol strings, compact save snapshots, or a mod that already serializes state outside SteamNetworkLib.
+
+```csharp
+var rawOptions = new NetworkSyncOptions
+{
+    KeyPrefix = "MyMod_",
+    Serializer = new RawStringSyncSerializer()
+};
+
+var hostState = client.CreateHostSyncVar("HostState", "", rawOptions);
+
+// Stored as stock|pseudo|12|420, not as a JSON string with quotes.
+hostState.Value = "stock|pseudo|12|420";
+```
+
+Prefer the default `JsonSyncSerializer` for normal typed values. `RawStringSyncSerializer` only supports `string`; it intentionally rejects other types so accidental typed state does not get converted through `ToString()`. Empty strings are preserved with an internal sentinel because Steam lobby/member data APIs also use empty strings to represent missing keys.
+
 ## Complete Example
 
 For a comprehensive, production-ready example demonstrating all SyncVar features, see:

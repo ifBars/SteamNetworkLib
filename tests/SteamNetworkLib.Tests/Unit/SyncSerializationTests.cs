@@ -410,6 +410,89 @@ namespace SteamNetworkLib.Tests.Unit
             // Assert
             deserialized.Should().BeFalse();
         }
+
+        [Fact]
+        public void RawStringSyncSerializer_Serialize_DoesNotJsonQuoteString()
+        {
+            var serializer = new RawStringSyncSerializer();
+            var value = "stock|pseudo|12|420\nsecond-line";
+
+            var serialized = serializer.Serialize(value);
+
+            serialized.Should().Be(value);
+            serialized.Should().NotStartWith("\"");
+            serialized.Should().NotEndWith("\"");
+        }
+
+        [Fact]
+        public void RawStringSyncSerializer_Deserialize_ReturnsOriginalRawString()
+        {
+            var serializer = new RawStringSyncSerializer();
+            var raw = "action=checkout|request=req-1|slot=3";
+
+            var deserialized = serializer.Deserialize<string>(raw);
+
+            deserialized.Should().Be(raw);
+        }
+
+        [Fact]
+        public void RawStringSyncSerializer_EmptyString_RoundTripsThroughNonEmptySentinel()
+        {
+            var serializer = new RawStringSyncSerializer();
+
+            var serialized = serializer.Serialize("");
+            var deserialized = serializer.Deserialize<string>(serialized);
+
+            serialized.Should().NotBeEmpty("Steam lobby/member data APIs use empty strings for missing keys");
+            deserialized.Should().BeEmpty();
+        }
+
+        [Fact]
+        public void RawStringSyncSerializer_ReservedPrefix_RoundTripsAsUserData()
+        {
+            var serializer = new RawStringSyncSerializer();
+            var raw = "\uE000SteamNetworkLib.RawString:Empty";
+
+            var serialized = serializer.Serialize(raw);
+            var deserialized = serializer.Deserialize<string>(serialized);
+
+            serialized.Should().NotBe(raw, "reserved serializer tokens must be escaped before storage");
+            deserialized.Should().Be(raw);
+        }
+
+        [Fact]
+        public void RawStringSyncSerializer_NullString_RoundTripsAsEmptyString()
+        {
+            var serializer = new RawStringSyncSerializer();
+
+            var serialized = serializer.Serialize<string?>(null);
+            var deserialized = serializer.Deserialize<string>(serialized);
+
+            serialized.Should().NotBeEmpty();
+            deserialized.Should().BeEmpty();
+        }
+
+        [Fact]
+        public void RawStringSyncSerializer_CanSerialize_OnlyAllowsStrings()
+        {
+            var serializer = new RawStringSyncSerializer();
+
+            serializer.CanSerialize(typeof(string)).Should().BeTrue();
+            serializer.CanSerialize(typeof(int)).Should().BeFalse();
+            serializer.CanSerialize(typeof(TestGameData)).Should().BeFalse();
+        }
+
+        [Fact]
+        public void RawStringSyncSerializer_NonStringType_ThrowsSyncSerializationException()
+        {
+            var serializer = new RawStringSyncSerializer();
+
+            Action serialize = () => serializer.Serialize(42);
+            Action deserialize = () => serializer.Deserialize<int>("42");
+
+            serialize.Should().Throw<SyncSerializationException>();
+            deserialize.Should().Throw<SyncSerializationException>();
+        }
     }
 
     #region Test Classes
