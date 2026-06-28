@@ -12,7 +12,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Text;
 
 namespace SteamNetworkLib.Core
 {
@@ -574,21 +573,26 @@ namespace SteamNetworkLib.Core
                     }
                 }
 #else
-                while (SteamNetworking.IsP2PPacketAvailable(out packetSize))
+                int minCh = Math.Max(0, _rules.MinReceiveChannel);
+                int maxCh = Math.Max(minCh, _rules.MaxReceiveChannel);
+                for (int channel = minCh; channel <= maxCh; channel++)
                 {
-                    var data = new byte[packetSize];
-                    uint bytesRead;
-
-                    if (SteamNetworking.ReadP2PPacket(data, packetSize, out bytesRead, out remoteId))
+                    while (SteamNetworking.IsP2PPacketAvailable(out packetSize, channel))
                     {
-                        if (bytesRead < packetSize)
-                        {
-                            var trimmedData = new byte[bytesRead];
-                            Array.Copy(data, trimmedData, bytesRead);
-                            data = trimmedData;
-                        }
+                        var data = new byte[packetSize];
+                        uint bytesRead;
 
-                        ProcessReceivedPacket(remoteId, data, 0);
+                        if (SteamNetworking.ReadP2PPacket(data, packetSize, out bytesRead, out remoteId, channel))
+                        {
+                            if (bytesRead < packetSize)
+                            {
+                                var trimmedData = new byte[bytesRead];
+                                Array.Copy(data, trimmedData, bytesRead);
+                                data = trimmedData;
+                            }
+
+                            ProcessReceivedPacket(remoteId, data, channel);
+                        }
                     }
                 }
 #endif
@@ -989,38 +993,6 @@ namespace SteamNetworkLib.Core
                 if (MessageSerializer.IsValidMessage(data))
                 {
                     ProcessSteamNetworkLibMessage(senderId, data, channel);
-                }
-                else
-                {
-#if IL2CPP
-                    // Try to diagnose the issue
-                    if (data.Length >= 4)
-                    {
-                        var possibleHeader = Encoding.UTF8.GetString(data, 0, Math.Min(data.Length, 4));
-                        
-                        // Check if it might be JSON directly without our header
-                        if (data[0] == '{')
-                        {
-                            try
-                            {
-                                var jsonStr = Encoding.UTF8.GetString(data);
-                            }
-                            catch
-                            {
-                                // Ignore conversion errors
-                            }
-                        }
-                    }
-                    
-                    // Throw exception to report the error properly
-                    throw new P2PException(
-                        $"Invalid message format received from {senderId}. Expected header '{MessageSerializer.MESSAGE_HEADER}' not found.",
-                        SteamNetworkErrorKind.MessageFormatInvalid,
-                        operation: nameof(ProcessIncomingPackets),
-                        targetId: senderId,
-                        channel: channel,
-                        packetSize: data.Length);
-#endif
                 }
             }
             catch (Exception ex)

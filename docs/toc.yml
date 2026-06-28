@@ -6,6 +6,8 @@
   href: lobby-management.md
 - name: Data Synchronization
   href: data-synchronization.md
+- name: Multiplayer Compatibility
+  href: multiplayer-compatibility.md
 - name: Synchronized Variables
   href: sync-vars.md
 - name: P2P Messaging

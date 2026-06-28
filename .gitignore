@@ -18,6 +18,8 @@ msbuild.wrn
 _site/
 api/
 _exported_templates/
+.spark-runs
+banner.png
 
 # Visual Studio files
 .vs/
