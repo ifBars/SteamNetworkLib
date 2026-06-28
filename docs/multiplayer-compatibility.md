@@ -47,12 +47,12 @@ Use the API by ownership and payload shape:
 |------|-----------------|
 | One shared host-owned value | `client.CreateHostSyncVar("Key", defaultValue, options)` |
 | One value per player | `client.CreateClientSyncVar("Key", defaultValue, options)` |
-| A command, request, or event | A custom `TypedP2PMessage<TPayload>` message type |
+| A command, request, or event | `client.SendMessageToPlayerAsync(targetId, new MyMessage(payload))` or `client.BroadcastMessageAsync(new MyMessage(payload))`, where `MyMessage` inherits `TypedP2PMessage<TPayload>` |
 | Large data or files | `SendLargeDataToPlayerAsync()` / `FileTransferMessage` |
 | Mod/version compatibility | `SyncModDataWithAllPlayers()`, `IsModDataCompatible()`, `OnVersionMismatch` |
 | Small raw string flags | Lobby/member data, with a unique key prefix |
 
-SyncVars are the default for small typed state. Typed P2P is better for request/response flows where the receiver needs to validate a payload before mutating host-owned state.
+SyncVars are the default for small typed state. In normal use, `CreateHostSyncVar<T>()` and `CreateClientSyncVar<T>()` infer `T` from `defaultValue`; specify the type argument only when inference is not clear. Typed P2P is better for request/response flows where the receiver needs to validate a payload before mutating host-owned state.
 
 ## Example: Host-Owned Shared State
 
