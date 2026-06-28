@@ -2,6 +2,8 @@
 
 SteamNetworkLib provides a high-level API for synchronized variables that automatically keep values in sync across all lobby members with minimal boilerplate.
 
+For a broader guide to deciding what belongs in host-owned state, client-owned state, P2P messages, or local-only state, see [Making Mods Multiplayer Compatible](multiplayer-compatibility.md).
+
 ## Quick Start
 
 ```csharp
@@ -362,3 +364,5 @@ score.OnWriteIgnored += (attemptedValue) =>
 | Player loadout/class | `ClientSyncVar` |
 | Player preferences | `ClientSyncVar` |
 | Per-player scores | `ClientSyncVar` |
+
+Host-owned values should be written only from host-authoritative code paths. If a client needs to affect a host-owned value, send a typed request message to the host, validate it there, then let the host publish the accepted result.
