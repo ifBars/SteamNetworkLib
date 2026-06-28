@@ -34,6 +34,41 @@ public override void OnUpdate()
 
 Guard every networking path with `multiplayerAvailable`. Your local/single-player logic should still run when Steamworks is unavailable.
 
+## Optional Steam initialization with runner
+
+```csharp
+private SteamNetworkClient client = new SteamNetworkClient();
+private SteamNetworkClientRunner runner;
+
+public override void OnInitializeMelon()
+{
+    runner = new SteamNetworkClientRunner(
+        client,
+        new SteamNetworkClientRunnerOptions
+        {
+            RetryInterval = TimeSpan.FromSeconds(2)
+        });
+
+    runner.OnInitialized += () =>
+    {
+        MelonLogger.Msg("Steam networking ready.");
+        RegisterNetworkHandlers(client);
+    };
+}
+
+public override void OnUpdate()
+{
+    runner.Tick();
+}
+
+public override void OnDeinitializeMelon()
+{
+    runner.Dispose();
+}
+```
+
+Use `runner.IsAvailable` to guard network-only actions. The runner calls `ProcessIncomingMessages()` after initialization succeeds.
+
 ## Find host and remote members
 
 ```csharp
