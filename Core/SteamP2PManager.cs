@@ -34,6 +34,7 @@ namespace SteamNetworkLib.Core
         private Callback<P2PSessionConnectFail_t>? _sessionConnectFailCallback;
 
         // Message handling
+        private readonly object _messageRegistryLock = new object();
         private readonly Dictionary<string, List<Action<P2PMessage, CSteamID>>> _messageHandlers = new Dictionary<string, List<Action<P2PMessage, CSteamID>>>();
         
         // Custom message type registry for dynamic message type creation
@@ -464,18 +465,12 @@ namespace SteamNetworkLib.Core
         /// <returns>A disposable subscription for this handler.</returns>
         public IDisposable SubscribeMessageHandler<T>(Action<T, CSteamID> handler) where T : P2PMessage, new()
         {
+            if (handler == null)
+            {
+                throw new ArgumentNullException(nameof(handler));
+            }
+
             var messageType = new T().MessageType;
-
-            // Automatically register custom message types
-            if (!_customMessageTypes.ContainsKey(messageType))
-            {
-                _customMessageTypes[messageType] = typeof(T);
-            }
-
-            if (!_messageHandlers.ContainsKey(messageType))
-            {
-                _messageHandlers[messageType] = new List<Action<P2PMessage, CSteamID>>();
-            }
 
 #if IL2CPP
             // IL2CPP-specific handler registration to avoid generic type issues
@@ -517,7 +512,21 @@ namespace SteamNetworkLib.Core
             };
 #endif
 
-            _messageHandlers[messageType].Add(wrappedHandler);
+            lock (_messageRegistryLock)
+            {
+                if (!_customMessageTypes.ContainsKey(messageType))
+                {
+                    _customMessageTypes[messageType] = typeof(T);
+                }
+
+                if (!_messageHandlers.ContainsKey(messageType))
+                {
+                    _messageHandlers[messageType] = new List<Action<P2PMessage, CSteamID>>();
+                }
+
+                _messageHandlers[messageType].Add(wrappedHandler);
+            }
+
             return new MessageHandlerSubscription(() => RemoveMessageHandler(messageType, wrappedHandler));
         }
 
@@ -528,20 +537,26 @@ namespace SteamNetworkLib.Core
         public void UnregisterMessageHandler<T>() where T : P2PMessage, new()
         {
             var messageType = new T().MessageType;
-            _messageHandlers.Remove(messageType);
+            lock (_messageRegistryLock)
+            {
+                _messageHandlers.Remove(messageType);
+            }
         }
 
         private void RemoveMessageHandler(string messageType, Action<P2PMessage, CSteamID> handler)
         {
-            if (!_messageHandlers.TryGetValue(messageType, out var handlers))
+            lock (_messageRegistryLock)
             {
-                return;
-            }
+                if (!_messageHandlers.TryGetValue(messageType, out var handlers))
+                {
+                    return;
+                }
 
-            handlers.Remove(handler);
-            if (handlers.Count == 0)
-            {
-                _messageHandlers.Remove(messageType);
+                handlers.Remove(handler);
+                if (handlers.Count == 0)
+                {
+                    _messageHandlers.Remove(messageType);
+                }
             }
         }
 
@@ -555,10 +570,13 @@ namespace SteamNetworkLib.Core
         public void RegisterCustomMessageType<T>() where T : P2PMessage, new()
         {
             var messageType = new T().MessageType;
-            if (!_customMessageTypes.ContainsKey(messageType))
+            lock (_messageRegistryLock)
             {
-                _customMessageTypes[messageType] = typeof(T);
-                Console.WriteLine($"[SteamNetworkLib] Registered custom message type: {messageType}");
+                if (!_customMessageTypes.ContainsKey(messageType))
+                {
+                    _customMessageTypes[messageType] = typeof(T);
+                    Console.WriteLine($"[SteamNetworkLib] Registered custom message type: {messageType}");
+                }
             }
         }
 
@@ -569,7 +587,10 @@ namespace SteamNetworkLib.Core
         public void UnregisterCustomMessageType<T>() where T : P2PMessage, new()
         {
             var messageType = new T().MessageType;
-            _customMessageTypes.Remove(messageType);
+            lock (_messageRegistryLock)
+            {
+                _customMessageTypes.Remove(messageType);
+            }
         }
 
         /// <summary>
@@ -1006,7 +1027,15 @@ namespace SteamNetworkLib.Core
         {
             try
             {
-                if (_customMessageTypes.TryGetValue(messageType, out var messageTypeInfo))
+                Type? messageTypeInfo;
+                bool hasHandlers;
+                lock (_messageRegistryLock)
+                {
+                    _customMessageTypes.TryGetValue(messageType, out messageTypeInfo);
+                    hasHandlers = _messageHandlers.ContainsKey(messageType);
+                }
+
+                if (messageTypeInfo != null)
                 {
                     var method = typeof(MessageSerializer).GetMethod("CreateMessage")
                         ?.MakeGenericMethod(messageTypeInfo);
@@ -1016,7 +1045,7 @@ namespace SteamNetworkLib.Core
                         return (P2PMessage?)method.Invoke(null, parameters);
                     }
                 }
-                else if (_messageHandlers.ContainsKey(messageType))
+                else if (hasHandlers)
                 {
                     Console.WriteLine($"[SteamNetworkLib] Received unregistered custom message type '{messageType}'. " +
                         $"Call RegisterCustomMessageType<YourMessageClass>() during initialization to enable receiving this message type.");
@@ -1144,18 +1173,23 @@ namespace SteamNetworkLib.Core
                     OnMessageReceived?.Invoke(this, new P2PMessageReceivedEventArgs(message, senderId, channel));
 #endif
 
-                    if (_messageHandlers.TryGetValue(messageType, out var handlers))
+                    Action<P2PMessage, CSteamID>[] handlers;
+                    lock (_messageRegistryLock)
                     {
-                        foreach (var handler in handlers.ToArray())
+                        handlers = _messageHandlers.TryGetValue(messageType, out var registeredHandlers)
+                            ? registeredHandlers.ToArray()
+                            : Array.Empty<Action<P2PMessage, CSteamID>>();
+                    }
+
+                    foreach (var handler in handlers)
+                    {
+                        try
                         {
-                            try
-                            {
-                                handler(message, senderId);
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"Error in message handler for {messageType}: {ex.Message}");
-                            }
+                            handler(message, senderId);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error in message handler for {messageType}: {ex.Message}");
                         }
                     }
                 }
@@ -1169,6 +1203,7 @@ namespace SteamNetworkLib.Core
         private sealed class MessageHandlerSubscription : IDisposable
         {
             private readonly Action _dispose;
+            private readonly object _syncRoot = new object();
             private bool _disposed;
 
             public MessageHandlerSubscription(Action dispose)
@@ -1178,13 +1213,17 @@ namespace SteamNetworkLib.Core
 
             public void Dispose()
             {
-                if (_disposed)
+                lock (_syncRoot)
                 {
-                    return;
+                    if (_disposed)
+                    {
+                        return;
+                    }
+
+                    _disposed = true;
                 }
 
                 _dispose();
-                _disposed = true;
             }
         }
 
@@ -1254,7 +1293,11 @@ namespace SteamNetworkLib.Core
                 _sessionRequestCallback?.Dispose();
                 _sessionConnectFailCallback?.Dispose();
 
-                _messageHandlers.Clear();
+                lock (_messageRegistryLock)
+                {
+                    _messageHandlers.Clear();
+                    _customMessageTypes.Clear();
+                }
                 _activeSessions.Clear();
                 _sendQueue.Clear();
             }

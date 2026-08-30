@@ -196,16 +196,26 @@ private void RegisterNetworking()
 
     checkoutResponder = checkoutRpc.RegisterResponder((request, sender) =>
     {
-        int approved = Math.Min(request.Body.Quantity, GetAvailableStock(request.Body.ItemId));
+        if (!TryReserveStock(
+                request.Body.ItemId,
+                request.Body.Quantity,
+                out string reservationId,
+                out int approvedQuantity))
+        {
+            return new CheckoutResponseMessage
+            {
+                Success = false,
+                Error = "Out of stock"
+            };
+        }
 
         return new CheckoutResponseMessage(new CheckoutResponsePayload
         {
-            ReservationId = Guid.NewGuid().ToString("N"),
-            ApprovedQuantity = approved
+            ReservationId = reservationId,
+            ApprovedQuantity = approvedQuantity
         })
         {
-            Success = approved > 0,
-            Error = approved > 0 ? string.Empty : "Out of stock"
+            Success = true
         };
     });
 }
@@ -220,7 +230,7 @@ private void CleanupNetworking()
 ### Client: send and await the response
 
 ```csharp
-var checkoutRpc = client.CreateRequestResponseClient<CheckoutRequestMessage, CheckoutResponseMessage>(
+using var checkoutRpc = client.CreateRequestResponseClient<CheckoutRequestMessage, CheckoutResponseMessage>(
     TimeSpan.FromSeconds(10));
 
 var response = await checkoutRpc.SendRequestAsync(hostId, new CheckoutRequestMessage(
@@ -240,7 +250,9 @@ else
 }
 ```
 
-Keep request handlers host-authoritative when they mutate shared state. Clients should send intent (`ItemId`, quantity, stable slot IDs), and the host should validate the current game state before replying.
+`TryReserveStock` represents one host-owned atomic operation: validate current stock, decrement or reserve it, and return the resulting reservation identifier and approved quantity together. Do not implement it as a separate read followed by a later write, because concurrent requests could both approve the same stock.
+
+Keep request handlers host-authoritative when they mutate shared state. Clients should send intent (`ItemId`, quantity, stable slot IDs), and the host should validate the current game state before replying. Reuse a lifecycle-owned coordinator when the message pair is long-lived; otherwise scope it with `using` so its response subscription is always released.
 
 ## Sending custom messages manually
 

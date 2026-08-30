@@ -26,8 +26,8 @@ namespace SteamNetworkLib.Utilities
     {
         private readonly SteamNetworkClient _client;
         private readonly object _syncRoot = new object();
-        private readonly Dictionary<string, TaskCompletionSource<TResponse>> _pendingResponses =
-            new Dictionary<string, TaskCompletionSource<TResponse>>();
+        private readonly Dictionary<string, PendingResponse> _pendingResponses =
+            new Dictionary<string, PendingResponse>();
         private readonly List<IDisposable> _responderSubscriptions = new List<IDisposable>();
         private readonly IDisposable _responseSubscription;
         private bool _disposed;
@@ -41,10 +41,7 @@ namespace SteamNetworkLib.Utilities
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
             DefaultTimeout = defaultTimeout ?? TimeSpan.FromSeconds(10);
-            if (DefaultTimeout <= TimeSpan.Zero)
-            {
-                throw new ArgumentOutOfRangeException(nameof(defaultTimeout), "Default timeout must be greater than zero.");
-            }
+            ValidateTimeout(DefaultTimeout, nameof(defaultTimeout));
 
             _responseSubscription = _client.SubscribeMessageHandler<TResponse>(HandleResponse);
         }
@@ -75,6 +72,9 @@ namespace SteamNetworkLib.Utilities
         /// <param name="request">The request message.</param>
         /// <param name="timeout">Optional timeout for this request.</param>
         /// <returns>The matching response message.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when the effective timeout is outside the supported range.</exception>
+        /// <exception cref="ObjectDisposedException">Thrown when the coordinator has been disposed.</exception>
         /// <exception cref="TimeoutException">Thrown when no matching response arrives before the timeout.</exception>
         public async Task<TResponse> SendRequestAsync(CSteamID targetId, TRequest request, TimeSpan? timeout = null)
         {
@@ -91,16 +91,15 @@ namespace SteamNetworkLib.Utilities
             }
 
             var effectiveTimeout = timeout ?? DefaultTimeout;
-            if (effectiveTimeout <= TimeSpan.Zero)
-            {
-                throw new ArgumentOutOfRangeException(nameof(timeout), "Timeout must be greater than zero.");
-            }
+            ValidateTimeout(effectiveTimeout, nameof(timeout));
 
             var requestId = request.RequestId;
-            var pending = new TaskCompletionSource<TResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var pending = new PendingResponse(targetId);
 
             lock (_syncRoot)
             {
+                ThrowIfDisposedUnsafe();
+
                 if (_pendingResponses.ContainsKey(requestId))
                 {
                     throw new InvalidOperationException($"A pending P2P request already uses RequestId '{requestId}'.");
@@ -118,14 +117,14 @@ namespace SteamNetworkLib.Utilities
                     throw new InvalidOperationException($"Failed to send P2P request '{requestId}' to {targetId.m_SteamID}.");
                 }
 
-                var completed = await Task.WhenAny(pending.Task, Task.Delay(effectiveTimeout));
-                if (completed != pending.Task)
+                var completed = await Task.WhenAny(pending.Completion.Task, Task.Delay(effectiveTimeout));
+                if (completed != pending.Completion.Task)
                 {
                     RemovePending(requestId);
                     throw new TimeoutException($"Timed out waiting for P2P response to request '{requestId}'.");
                 }
 
-                return await pending.Task;
+                return await pending.Completion.Task;
             }
             catch
             {
@@ -138,6 +137,9 @@ namespace SteamNetworkLib.Utilities
         /// Registers a responder that receives requests and sends correlated responses.
         /// </summary>
         /// <param name="responder">Async function that builds a response for each request.</param>
+        /// <returns>A subscription that unregisters this responder.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="responder"/> is null.</exception>
+        /// <exception cref="ObjectDisposedException">Thrown when the coordinator has been disposed.</exception>
         public IDisposable RegisterResponder(Func<TRequest, CSteamID, Task<TResponse>> responder)
         {
             ThrowIfDisposed();
@@ -157,9 +159,20 @@ namespace SteamNetworkLib.Utilities
                 _ = SendResponseFromResponderAsync(request, senderId, responder);
             });
 
+            bool disposeSubscription;
             lock (_syncRoot)
             {
-                _responderSubscriptions.Add(subscription);
+                disposeSubscription = _disposed;
+                if (!disposeSubscription)
+                {
+                    _responderSubscriptions.Add(subscription);
+                }
+            }
+
+            if (disposeSubscription)
+            {
+                subscription.Dispose();
+                ThrowObjectDisposed();
             }
 
             return subscription;
@@ -169,6 +182,9 @@ namespace SteamNetworkLib.Utilities
         /// Registers a synchronous responder that receives requests and sends correlated responses.
         /// </summary>
         /// <param name="responder">Function that builds a response for each request.</param>
+        /// <returns>A subscription that unregisters this responder.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="responder"/> is null.</exception>
+        /// <exception cref="ObjectDisposedException">Thrown when the coordinator has been disposed.</exception>
         public IDisposable RegisterResponder(Func<TRequest, CSteamID, TResponse> responder)
         {
             if (responder == null)
@@ -184,16 +200,21 @@ namespace SteamNetworkLib.Utilities
         /// </summary>
         public void Dispose()
         {
-            if (_disposed)
-            {
-                return;
-            }
-
             List<TaskCompletionSource<TResponse>> pending;
             List<IDisposable> responders;
             lock (_syncRoot)
             {
-                pending = new List<TaskCompletionSource<TResponse>>(_pendingResponses.Values);
+                if (_disposed)
+                {
+                    return;
+                }
+
+                pending = new List<TaskCompletionSource<TResponse>>(_pendingResponses.Count);
+                foreach (var response in _pendingResponses.Values)
+                {
+                    pending.Add(response.Completion);
+                }
+
                 _pendingResponses.Clear();
                 responders = new List<IDisposable>(_responderSubscriptions);
                 _responderSubscriptions.Clear();
@@ -217,7 +238,7 @@ namespace SteamNetworkLib.Utilities
             CSteamID senderId,
             Func<TRequest, CSteamID, Task<TResponse>> responder)
         {
-            if (_disposed)
+            if (IsDisposed)
             {
                 return;
             }
@@ -235,17 +256,29 @@ namespace SteamNetworkLib.Utilities
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[SteamNetworkLib] P2P request responder failed: {ex}");
                 response = new TResponse();
-                SetFailure(response, ex.Message);
+                SetFailure(response, "Request responder failed.");
             }
 
-            if (_disposed)
+            if (IsDisposed)
             {
                 return;
             }
 
             response.RequestId = request.RequestId;
-            await _client.SendMessageToPlayerAsync(senderId, response);
+            try
+            {
+                bool sent = await _client.SendMessageToPlayerAsync(senderId, response);
+                if (!sent)
+                {
+                    Console.WriteLine($"[SteamNetworkLib] Failed to send P2P response '{response.RequestId}' to {senderId.m_SteamID}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SteamNetworkLib] Error sending P2P response '{response.RequestId}' to {senderId.m_SteamID}: {ex}");
+            }
         }
 
         private void HandleResponse(TResponse response, CSteamID senderId)
@@ -255,7 +288,7 @@ namespace SteamNetworkLib.Utilities
                 return;
             }
 
-            TaskCompletionSource<TResponse>? pending;
+            PendingResponse? pending;
             lock (_syncRoot)
             {
                 if (!_pendingResponses.TryGetValue(response.RequestId, out pending))
@@ -263,10 +296,15 @@ namespace SteamNetworkLib.Utilities
                     return;
                 }
 
+                if (pending.TargetSteamId != senderId.m_SteamID)
+                {
+                    return;
+                }
+
                 _pendingResponses.Remove(response.RequestId);
             }
 
-            pending.TrySetResult(response);
+            pending.Completion.TrySetResult(response);
         }
 
         private void RemovePending(string requestId)
@@ -285,10 +323,57 @@ namespace SteamNetworkLib.Utilities
 
         private void ThrowIfDisposed()
         {
+            lock (_syncRoot)
+            {
+                ThrowIfDisposedUnsafe();
+            }
+        }
+
+        private void ThrowIfDisposedUnsafe()
+        {
             if (_disposed)
             {
-                throw new ObjectDisposedException(nameof(P2PRequestResponseClient<TRequest, TResponse>));
+                ThrowObjectDisposed();
             }
+        }
+
+        private bool IsDisposed
+        {
+            get
+            {
+                lock (_syncRoot)
+                {
+                    return _disposed;
+                }
+            }
+        }
+
+        private static void ValidateTimeout(TimeSpan timeout, string parameterName)
+        {
+            if (timeout <= TimeSpan.Zero || timeout.TotalMilliseconds > int.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(
+                    parameterName,
+                    $"Timeout must be greater than zero and no longer than {int.MaxValue} milliseconds.");
+            }
+        }
+
+        private static void ThrowObjectDisposed()
+        {
+            throw new ObjectDisposedException(nameof(P2PRequestResponseClient<TRequest, TResponse>));
+        }
+
+        private sealed class PendingResponse
+        {
+            public PendingResponse(CSteamID targetId)
+            {
+                TargetSteamId = targetId.m_SteamID;
+                Completion = new TaskCompletionSource<TResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            public ulong TargetSteamId { get; }
+
+            public TaskCompletionSource<TResponse> Completion { get; }
         }
     }
 }
