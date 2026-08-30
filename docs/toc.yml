@@ -6,10 +6,14 @@
   href: lobby-management.md
 - name: Data Synchronization
   href: data-synchronization.md
+- name: Multiplayer Compatibility
+  href: multiplayer-compatibility.md
 - name: Synchronized Variables
   href: sync-vars.md
 - name: P2P Messaging
   href: p2p-messaging.md
+- name: Patterns from Real Mods
+  href: consumer-patterns.md
 - name: Dedicated Server Compatibility
   href: dedicated-server-compatibility.md
 - name: Network Rules

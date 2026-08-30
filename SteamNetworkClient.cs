@@ -30,6 +30,8 @@ namespace SteamNetworkLib
         private bool _isInitialized = false;
         private bool _versionCheckEnabled = true;
         private readonly NetworkRules _rules;
+        private readonly Func<bool> _isSteamInitialized;
+        private readonly Func<IDedicatedServerMessagingBridge?> _dedicatedBridgeFactory;
         private readonly List<IDisposable> _syncVars = new List<IDisposable>();
 
         // Dedicated-server compatibility state
@@ -37,7 +39,7 @@ namespace SteamNetworkLib
         private readonly Dictionary<string, string> _virtualLobbyData = new Dictionary<string, string>();
         private readonly Dictionary<ulong, Dictionary<string, string>> _virtualMemberData =
             new Dictionary<ulong, Dictionary<string, string>>();
-        private DedicatedServerMessagingBridge? _dedicatedBridge;
+        private IDedicatedServerMessagingBridge? _dedicatedBridge;
         private NetworkSessionMode _sessionMode = NetworkSessionMode.None;
         private string _virtualSessionId = string.Empty;
         private CSteamID _virtualOwnerId = CSteamID.Nil;
@@ -83,14 +85,14 @@ namespace SteamNetworkLib
         }
 
         /// <summary>
-        /// Gets whether this client has successfully initialized Steam networking.
+        /// Gets whether this client has successfully initialized a supported networking backend.
         /// </summary>
         /// <remarks>
         /// <para>
         /// This becomes <see langword="true"/> only after <see cref="Initialize"/> or
         /// <see cref="TryInitialize()"/> succeeds. It remains <see langword="false"/> when
-        /// the game is launched without Steamworks, when <c>SteamAPI.Init()</c> has not run
-        /// for the current process, or when initialization fails for any other reason.
+        /// neither client Steamworks nor the DedicatedServerMod relay is available, or when
+        /// initialization fails for any other reason.
         /// </para>
         /// <para>
         /// Use this before calling lobby, member-data, SyncVar, or P2P methods in mods that
@@ -295,8 +297,8 @@ namespace SteamNetworkLib
         /// Call <see cref="Initialize"/> before using any other methods.
         /// </summary>
         public SteamNetworkClient()
+            : this(new NetworkRules())
         {
-            _rules = new NetworkRules();
         }
 
         /// <summary>
@@ -304,8 +306,18 @@ namespace SteamNetworkLib
         /// Call <see cref="Initialize"/> before using any other methods.
         /// </summary>
         public SteamNetworkClient(NetworkRules rules)
+            : this(rules, SteamNetworkUtils.IsSteamInitialized, DedicatedServerMessagingBridge.TryCreate)
+        {
+        }
+
+        internal SteamNetworkClient(
+            NetworkRules rules,
+            Func<bool> isSteamInitialized,
+            Func<IDedicatedServerMessagingBridge?> dedicatedBridgeFactory)
         {
             _rules = rules ?? new NetworkRules();
+            _isSteamInitialized = isSteamInitialized ?? throw new ArgumentNullException(nameof(isSteamInitialized));
+            _dedicatedBridgeFactory = dedicatedBridgeFactory ?? throw new ArgumentNullException(nameof(dedicatedBridgeFactory));
         }
 
         /// <summary>
@@ -322,25 +334,35 @@ namespace SteamNetworkLib
 
             try
             {
-                if (!SteamNetworkUtils.IsSteamInitialized())
+                AttachDedicatedBridgeIfAvailable();
+
+                if (_isSteamInitialized())
+                {
+                    LobbyManager = new SteamLobbyManager();
+                    LobbyData = new SteamLobbyData(LobbyManager);
+                    MemberData = new SteamMemberData(LobbyManager);
+                    P2PManager = new SteamP2PManager(LobbyManager, _rules);
+
+                    SubscribeToNativeEvents();
+                }
+                else if (_dedicatedBridge != null)
+                {
+                    P2PManager = new SteamP2PManager(_rules);
+                }
+                else
                 {
                     throw new SteamNetworkException(
-                        "Steam is not initialized. Make sure Steam is running and SteamAPI.Init() was called.",
+                        "No networking backend is available. Client Steamworks is not initialized and the DedicatedServerMod relay was not found.",
                         SteamNetworkErrorKind.SteamUnavailable,
                         operation: nameof(Initialize),
                         isRetryable: true);
                 }
 
-                LobbyManager = new SteamLobbyManager();
-                LobbyData = new SteamLobbyData(LobbyManager);
-                MemberData = new SteamMemberData(LobbyManager);
-                P2PManager = new SteamP2PManager(LobbyManager, _rules);
-
-                SubscribeToEvents();
-                AttachDedicatedBridgeIfAvailable();
+                SubscribeToP2PEvents();
                 UpdateSessionMode(forceApplyOverrides: true);
 
                 _isInitialized = true;
+                TryRegisterDedicatedSession(force: true);
                 return true;
             }
             catch (Exception ex)
@@ -426,7 +448,7 @@ namespace SteamNetworkLib
             EnsureInitialized();
             ClearVirtualSessionState(emitLobbyLeft: true);
             UpdateSessionMode(forceApplyOverrides: true);
-            return await LobbyManager.CreateLobbyAsync(lobbyType, maxMembers);
+            return await RequireLobbyManager().CreateLobbyAsync(lobbyType, maxMembers);
         }
 
         /// <summary>
@@ -441,7 +463,7 @@ namespace SteamNetworkLib
             EnsureInitialized();
             ClearVirtualSessionState(emitLobbyLeft: true);
             UpdateSessionMode(forceApplyOverrides: true);
-            return await LobbyManager.JoinLobbyAsync(lobbyId);
+            return await RequireLobbyManager().JoinLobbyAsync(lobbyId);
         }
 
         /// <summary>
@@ -461,7 +483,7 @@ namespace SteamNetworkLib
                 return;
             }
 
-            LobbyManager.LeaveLobby();
+            RequireLobbyManager().LeaveLobby();
         }
 
         /// <summary>
@@ -480,7 +502,7 @@ namespace SteamNetworkLib
                 return _virtualMembers.Values.Select(CloneMember).ToList();
             }
 
-            return LobbyManager.GetLobbyMembers();
+            return RequireLobbyManager().GetLobbyMembers();
         }
 
         /// <summary>
@@ -568,7 +590,7 @@ namespace SteamNetworkLib
                 throw new LobbyException("Cannot invite friends while connected to a dedicated-server session");
             }
 
-            LobbyManager.InviteFriend(friendId);
+            RequireLobbyManager().InviteFriend(friendId);
         }
 
         /// <summary>
@@ -584,7 +606,7 @@ namespace SteamNetworkLib
                 throw new LobbyException("Cannot open invite dialog while connected to a dedicated-server session");
             }
 
-            LobbyManager.OpenInviteDialog();
+            RequireLobbyManager().OpenInviteDialog();
         }
 
         #endregion
@@ -617,7 +639,7 @@ namespace SteamNetworkLib
                 return;
             }
 
-            LobbyData.SetData(key, value);
+            RequireLobbyData().SetData(key, value);
         }
 
         /// <summary>
@@ -637,7 +659,7 @@ namespace SteamNetworkLib
                 return _virtualLobbyData.TryGetValue(key, out var value) ? value : null;
             }
 
-            return LobbyData.GetData(key);
+            return RequireLobbyData().GetData(key);
         }
 
         /// <summary>
@@ -658,7 +680,7 @@ namespace SteamNetworkLib
                 return;
             }
 
-            MemberData.SetMemberData(key, value);
+            RequireMemberData().SetMemberData(key, value);
         }
 
         /// <summary>
@@ -678,7 +700,7 @@ namespace SteamNetworkLib
                 return GetVirtualMemberData(LocalPlayerId, key);
             }
 
-            return MemberData.GetMemberData(key);
+            return RequireMemberData().GetMemberData(key);
         }
 
         /// <summary>
@@ -699,7 +721,7 @@ namespace SteamNetworkLib
                 return GetVirtualMemberData(playerId, key);
             }
 
-            return MemberData.GetMemberData(playerId, key);
+            return RequireMemberData().GetMemberData(playerId, key);
         }
 
         /// <summary>
@@ -729,7 +751,7 @@ namespace SteamNetworkLib
                 return result;
             }
 
-            return MemberData.GetMemberDataForAllPlayers(key);
+            return RequireMemberData().GetMemberDataForAllPlayers(key);
         }
 
         /// <summary>
@@ -757,7 +779,7 @@ namespace SteamNetworkLib
                 return;
             }
 
-            MemberData.SetMemberDataBatch(data);
+            RequireMemberData().SetMemberDataBatch(data);
         }
 
         #endregion
@@ -775,7 +797,7 @@ namespace SteamNetworkLib
         public async Task<bool> SendMessageToPlayerAsync(CSteamID playerId, P2PMessage message)
         {
             EnsureInitialized();
-            return await P2PManager.SendMessageAsync(playerId, message);
+            return await RequireP2PManager().SendMessageAsync(playerId, message);
         }
 
         /// <summary>
@@ -790,7 +812,7 @@ namespace SteamNetworkLib
         public async Task<bool> SendLargeDataToPlayerAsync(CSteamID playerId, string transferName, byte[] data, int channel = 0, int? chunkSize = null)
         {
             EnsureInitialized();
-            return await P2PManager.SendLargeDataAsync(playerId, transferName, data, channel, chunkSize);
+            return await RequireP2PManager().SendLargeDataAsync(playerId, transferName, data, channel, chunkSize);
         }
 
         /// <summary>
@@ -815,7 +837,7 @@ namespace SteamNetworkLib
             {
                 if (member.SteamId != localPlayerId)
                 {
-                    sendTasks.Add(P2PManager.SendMessageAsync(member.SteamId, message));
+                    sendTasks.Add(RequireP2PManager().SendMessageAsync(member.SteamId, message));
                 }
             }
             
@@ -859,7 +881,7 @@ namespace SteamNetworkLib
         {
             EnsureInitialized();
             var message = new TextMessage { Content = text };
-            return await P2PManager.SendMessageAsync(playerId, message);
+            return await RequireP2PManager().SendMessageAsync(playerId, message);
         }
 
         /// <summary>
@@ -919,7 +941,7 @@ namespace SteamNetworkLib
                 Value = value,
                 DataType = dataType
             };
-            return await P2PManager.SendMessageAsync(playerId, message);
+            return await RequireP2PManager().SendMessageAsync(playerId, message);
         }
 
         /// <summary>
@@ -934,7 +956,7 @@ namespace SteamNetworkLib
         public void RegisterMessageHandler<T>(Action<T, CSteamID> handler) where T : P2PMessage, new()
         {
             EnsureInitialized();
-            P2PManager.RegisterMessageHandler(handler);
+            RequireP2PManager().RegisterMessageHandler(handler);
         }
 
         /// <summary>
@@ -991,7 +1013,10 @@ namespace SteamNetworkLib
             // This is what actually triggers P2P packet reception callbacks
             try
             {
-                SteamAPI.RunCallbacks();
+                if (LobbyManager != null)
+                {
+                    SteamAPI.RunCallbacks();
+                }
             }
             catch (Exception ex)
             {
@@ -999,7 +1024,7 @@ namespace SteamNetworkLib
             }
 #endif
 
-            P2PManager.ProcessIncomingPackets();
+            P2PManager?.ProcessIncomingPackets();
         }
 
         #endregion
@@ -1284,8 +1309,13 @@ namespace SteamNetworkLib
         /// <remarks>
         /// This method is called during initialization to set up event forwarding.
         /// </remarks>
-        private void SubscribeToEvents()
+        private void SubscribeToNativeEvents()
         {
+            if (LobbyManager == null || LobbyData == null || MemberData == null)
+            {
+                return;
+            }
+
             // Simple event forwarding
             LobbyManager.OnLobbyJoined += (s, e) =>
             {
@@ -1313,8 +1343,6 @@ namespace SteamNetworkLib
             LobbyData.OnLobbyDataChanged += (s, e) => OnLobbyDataChanged?.Invoke(this, e);
             LobbyManager.OnLobbyDataChanged += (s, e) => OnLobbyDataChanged?.Invoke(this, e);
             MemberData.OnMemberDataChanged += (s, e) => OnMemberDataChanged?.Invoke(this, e);
-            P2PManager.OnMessageReceived += (s, e) => OnP2PMessageReceived?.Invoke(this, e);
-
             // Add version checking if enabled
             if (!_versionCheckEnabled) return;
             LobbyManager.OnLobbyJoined += (s, e) => SafeExecute(() => SetLibraryVersionData(), "setting version data on lobby join");
@@ -1327,6 +1355,14 @@ namespace SteamNetworkLib
                     SafeExecute(() => CheckLibraryVersionCompatibility(), "checking version compatibility on data change");
                 }
             };
+        }
+
+        private void SubscribeToP2PEvents()
+        {
+            if (P2PManager != null)
+            {
+                P2PManager.OnMessageReceived += (s, e) => OnP2PMessageReceived?.Invoke(this, e);
+            }
         }
 
         private void AttachDedicatedBridgeIfAvailable()
@@ -1342,13 +1378,22 @@ namespace SteamNetworkLib
             }
 
             _lastDedicatedBridgeAttachAttemptUtc = DateTime.UtcNow;
-            _dedicatedBridge = DedicatedServerMessagingBridge.TryCreate();
+            _dedicatedBridge = _dedicatedBridgeFactory();
             if (_dedicatedBridge == null)
             {
                 return;
             }
 
             _dedicatedBridge.MessageReceived += OnDedicatedBridgeMessageReceived;
+            _dedicatedBridge.EndpointReady += OnDedicatedBridgeEndpointReady;
+            if (_isInitialized)
+            {
+                TryRegisterDedicatedSession(force: true);
+            }
+        }
+
+        private void OnDedicatedBridgeEndpointReady()
+        {
             TryRegisterDedicatedSession(force: true);
         }
 
@@ -1463,9 +1508,9 @@ namespace SteamNetworkLib
             _virtualMemberData.Clear();
 
             _virtualSessionId = snapshot.SessionId ?? string.Empty;
-            _virtualLocalPlayerId = ParseSteamIdOrNil(snapshot.LocalSteamId);
-            _virtualOwnerId = ParseSteamIdOrNil(snapshot.OwnerSteamId);
             _virtualServerSteamId = ParseSteamIdOrNil(snapshot.ServerSteamId);
+            _virtualLocalPlayerId = ParseDedicatedSteamIdOrNil(snapshot.LocalSteamId);
+            _virtualOwnerId = ParseDedicatedSteamIdOrNil(snapshot.OwnerSteamId);
             _lastDedicatedSnapshotUtc = DateTime.UtcNow;
 
             if (snapshot.LobbyData != null)
@@ -1480,7 +1525,7 @@ namespace SteamNetworkLib
             {
                 foreach (var memberKvp in snapshot.MemberData)
                 {
-                    if (!TryParseSteamId(memberKvp.Key, out var memberId))
+                    if (!TryParseDedicatedSteamId(memberKvp.Key, out var memberId))
                     {
                         continue;
                     }
@@ -1536,7 +1581,7 @@ namespace SteamNetworkLib
                 return;
             }
 
-            _virtualOwnerId = ParseSteamIdOrNil(payload.OwnerSteamId);
+            _virtualOwnerId = ParseDedicatedSteamIdOrNil(payload.OwnerSteamId);
             _lastDedicatedSnapshotUtc = DateTime.UtcNow;
             UpdateSessionMode(forceApplyOverrides: false);
             UpsertVirtualMember(payload.Member, raiseJoinedEvent: true);
@@ -1546,12 +1591,12 @@ namespace SteamNetworkLib
         private void HandleDedicatedMemberLeft(string data)
         {
             var payload = DedicatedJsonSerializer.Deserialize<DedicatedCompatibilityProtocol.MemberLeftPayload>(data ?? string.Empty);
-            if (payload == null || !TryParseSteamId(payload.SteamId, out var memberId))
+            if (payload == null || !TryParseDedicatedSteamId(payload.SteamId, out var memberId))
             {
                 return;
             }
 
-            _virtualOwnerId = ParseSteamIdOrNil(payload.OwnerSteamId);
+            _virtualOwnerId = ParseDedicatedSteamIdOrNil(payload.OwnerSteamId);
             _lastDedicatedSnapshotUtc = DateTime.UtcNow;
 
             if (_virtualMembers.TryGetValue(memberId.m_SteamID, out var existing))
@@ -1586,7 +1631,7 @@ namespace SteamNetworkLib
                 _virtualLobbyData[payload.Key] = payload.NewValue;
             }
 
-            CSteamID changedBy = ParseSteamIdOrNil(payload.ChangedBySteamId);
+            CSteamID changedBy = ParseDedicatedSteamIdOrNil(payload.ChangedBySteamId);
             OnLobbyDataChanged?.Invoke(this, new LobbyDataChangedEventArgs(payload.Key, oldValue, payload.NewValue, changedBy));
         }
 
@@ -1598,7 +1643,7 @@ namespace SteamNetworkLib
                 return;
             }
 
-            if (!TryParseSteamId(payload.MemberSteamId, out var memberId))
+            if (!TryParseDedicatedSteamId(payload.MemberSteamId, out var memberId))
             {
                 return;
             }
@@ -1626,7 +1671,7 @@ namespace SteamNetworkLib
                 return;
             }
 
-            if (!TryParseSteamId(payload.SenderSteamId, out var senderId))
+            if (!TryParseDedicatedSteamId(payload.SenderSteamId, out var senderId))
             {
                 return;
             }
@@ -1799,7 +1844,7 @@ namespace SteamNetworkLib
 
         private void UpsertVirtualMember(DedicatedCompatibilityProtocol.MemberSnapshot snapshot, bool raiseJoinedEvent)
         {
-            if (snapshot == null || !TryParseSteamId(snapshot.SteamId, out var memberId))
+            if (snapshot == null || !TryParseDedicatedSteamId(snapshot.SteamId, out var memberId))
             {
                 return;
             }
@@ -1926,6 +1971,31 @@ namespace SteamNetworkLib
             return TryParseSteamId(raw, out var steamId) ? steamId : CSteamID.Nil;
         }
 
+        private bool TryParseDedicatedSteamId(string? raw, out CSteamID steamId)
+        {
+            if (TryParseSteamId(raw, out steamId))
+            {
+                return true;
+            }
+
+            // S1DS identifies its in-process loopback connection as "0". Once the
+            // authenticated game-server identity is present in the snapshot, expose
+            // that identity to consumers instead of leaking an invalid CSteamID.
+            if (string.Equals(raw, "0", StringComparison.Ordinal) && _virtualServerSteamId != CSteamID.Nil)
+            {
+                steamId = _virtualServerSteamId;
+                return true;
+            }
+
+            steamId = CSteamID.Nil;
+            return false;
+        }
+
+        private CSteamID ParseDedicatedSteamIdOrNil(string? raw)
+        {
+            return TryParseDedicatedSteamId(raw, out var steamId) ? steamId : CSteamID.Nil;
+        }
+
         private void SafeExecute(Action action, string operation)
         {
             try { action(); }
@@ -1986,6 +2056,29 @@ namespace SteamNetworkLib
             {
                 throw new InvalidOperationException("SteamNetworkClient is not initialized. Call Initialize() first.");
             }
+        }
+
+        private SteamLobbyManager RequireLobbyManager()
+        {
+            return LobbyManager ?? throw new LobbyException(
+                "Steam lobby operations are unavailable because this client is using the dedicated-server relay backend.");
+        }
+
+        private SteamLobbyData RequireLobbyData()
+        {
+            return LobbyData ?? throw new LobbyException(
+                "Steam lobby data is unavailable until a dedicated-server session snapshot is received.");
+        }
+
+        private SteamMemberData RequireMemberData()
+        {
+            return MemberData ?? throw new LobbyException(
+                "Steam member data is unavailable until a dedicated-server session snapshot is received.");
+        }
+
+        private SteamP2PManager RequireP2PManager()
+        {
+            return P2PManager ?? throw new InvalidOperationException("The active networking backend did not initialize P2P messaging.");
         }
 
         /// <summary>

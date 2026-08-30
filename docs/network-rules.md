@@ -39,8 +39,8 @@ rules.EnableRelay = false;
 client.UpdateNetworkRules(rules);
 ```
 
-## IL2CPP Channel Range
-For IL2CPP builds, incoming packet polling scans a channel range:
+## Incoming Channel Range
+Incoming packet polling scans a channel range on both Mono and IL2CPP builds:
 - `MinReceiveChannel` (default 0)
 - `MaxReceiveChannel` (default 3)
 
