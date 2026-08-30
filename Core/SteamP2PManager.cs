@@ -254,6 +254,11 @@ namespace SteamNetworkLib.Core
                     return await _packetSendOverride(targetId, data, channel, sendType);
                 }
 
+                if (!_usesSteamTransport)
+                {
+                    return false;
+                }
+
                 await EnsureSessionAsync(targetId);
 
 #if IL2CPP

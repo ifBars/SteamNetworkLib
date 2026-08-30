@@ -30,6 +30,13 @@ namespace SteamNetworkLib.Tests.Unit
             client.P2PManager!.IsActive.Should().BeTrue();
             bridge.Commands.Should().ContainSingle(x => x.Command == "snl_dedicated_register");
 
+            bool sentBeforeSnapshot = await client.SendMessageToPlayerAsync(
+                new CSteamID(RemoteSteamId),
+                new TextMessage { Content = "too early" });
+
+            sentBeforeSnapshot.Should().BeFalse();
+            bridge.Commands.Should().NotContain(x => x.Command == "snl_dedicated_p2p_send");
+
             bridge.Emit("snl_dedicated_snapshot", CreateSnapshot());
 
             client.SessionMode.Should().Be(NetworkSessionMode.DedicatedRelay);
