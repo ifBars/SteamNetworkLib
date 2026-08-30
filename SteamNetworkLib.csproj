@@ -7,6 +7,7 @@
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Version>1.5.0</Version>
+    <AutomateLocalDeployment Condition="'$(AutomateLocalDeployment)'==''">true</AutomateLocalDeployment>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Mono'">
@@ -962,7 +963,7 @@
     </Reference>
   </ItemGroup>
 
-  <Target Name="CopyToUserLibs" AfterTargets="Build" Condition="'$(Configuration)'=='Mono' OR '$(Configuration)'=='MonoDebug' OR '$(Configuration)'=='Il2cpp' OR '$(Configuration)'=='Il2cppDebug'">
+  <Target Name="CopyToUserLibs" AfterTargets="Build" Condition="'$(AutomateLocalDeployment)'=='true' AND ('$(Configuration)'=='Mono' OR '$(Configuration)'=='MonoDebug' OR '$(Configuration)'=='Il2cpp' OR '$(Configuration)'=='Il2cppDebug')">
     <PropertyGroup>
       <SteamNetworkLibDeployGamePath Condition="'$(Configuration)'=='Mono' OR '$(Configuration)'=='MonoDebug'">$(MonoGameInstallPath)</SteamNetworkLibDeployGamePath>
       <SteamNetworkLibDeployGamePath Condition="'$(Configuration)'=='Il2cpp' OR '$(Configuration)'=='Il2cppDebug'">$(Il2CppGameInstallPath)</SteamNetworkLibDeployGamePath>

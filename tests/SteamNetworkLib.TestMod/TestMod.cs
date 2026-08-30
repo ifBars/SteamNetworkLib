@@ -4,8 +4,10 @@ using System.Collections.Generic;
 using System.IO;
 using MelonLoader;
 using SteamNetworkLib;
+using SteamNetworkLib.Core;
 using SteamNetworkLib.Models;
 using SteamNetworkLib.Sync;
+using SteamNetworkLib.Utilities;
 using UnityEngine;
 
 #if MONO
@@ -65,6 +67,46 @@ namespace SteamNetworkLib.TestMod
         }
     }
 
+    public sealed class RuntimeCheckoutRequestPayload
+    {
+        public string ItemId { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+    }
+
+    public sealed class RuntimeCheckoutResponsePayload
+    {
+        public string ReservationId { get; set; } = string.Empty;
+        public int ApprovedQuantity { get; set; }
+    }
+
+    public sealed class RuntimeCheckoutRequestMessage : P2PRequestMessage<RuntimeCheckoutRequestPayload>
+    {
+        public override string MessageType => "SNL_RUNTIME_CHECKOUT_REQUEST";
+
+        public RuntimeCheckoutRequestMessage()
+        {
+        }
+
+        public RuntimeCheckoutRequestMessage(RuntimeCheckoutRequestPayload payload)
+            : base(payload)
+        {
+        }
+    }
+
+    public sealed class RuntimeCheckoutResponseMessage : P2PResponseMessage<RuntimeCheckoutResponsePayload>
+    {
+        public override string MessageType => "SNL_RUNTIME_CHECKOUT_RESPONSE";
+
+        public RuntimeCheckoutResponseMessage()
+        {
+        }
+
+        public RuntimeCheckoutResponseMessage(RuntimeCheckoutResponsePayload payload)
+            : base(payload)
+        {
+        }
+    }
+
     public class TestMod : MelonMod
     {
         private const string LobbyDataKey = "snl.realgame.lobby.phase";
@@ -108,6 +150,11 @@ namespace SteamNetworkLib.TestMod
         private int _broadcastMessagesReceived;
         private bool _largeTransferAckReceived;
         private bool _musicTransferAckReceived;
+        private P2PRequestResponseClient<RuntimeCheckoutRequestMessage, RuntimeCheckoutResponseMessage>? _checkoutRpc;
+        private IDisposable? _checkoutResponder;
+        private bool _checkoutRequestHandled;
+        private CSteamID _checkoutRequestSender;
+        private string _checkoutRequestId = string.Empty;
 
         private string Role => _isHost ? "HOST" : "CLIENT";
         private string RoleResultsFile => Path.Combine(SharedDir, _isHost ? "host-results.txt" : "client-results.txt");
@@ -191,6 +238,13 @@ namespace SteamNetworkLib.TestMod
             _client.RegisterMessageHandler<EventMessage>(OnEventMessageReceived);
             _client.RegisterMessageHandler<HeartbeatMessage>(OnHeartbeatMessageReceived);
             _client.RegisterMessageHandler<StreamMessage>(OnStreamMessageReceived);
+
+            _checkoutRpc = _client.CreateRequestResponseClient<RuntimeCheckoutRequestMessage, RuntimeCheckoutResponseMessage>(
+                TimeSpan.FromSeconds(10));
+            if (_isHost)
+            {
+                _checkoutResponder = _checkoutRpc.RegisterResponder(HandleCheckoutRequest);
+            }
         }
 
         private IEnumerator RunHostTests()
@@ -208,6 +262,9 @@ namespace SteamNetworkLib.TestMod
             if (_failed) yield break;
 
             yield return RunHostDirectP2P(clientId);
+            if (_failed) yield break;
+
+            yield return RunHostRequestResponse(clientId);
             if (_failed) yield break;
 
             yield return RunHostModelMessages(clientId);
@@ -245,6 +302,9 @@ namespace SteamNetworkLib.TestMod
             if (_failed) yield break;
 
             yield return RunClientDirectP2P(hostId);
+            if (_failed) yield break;
+
+            yield return RunClientRequestResponse(hostId);
             if (_failed) yield break;
 
             yield return RunClientModelMessages(hostId);
@@ -380,6 +440,97 @@ namespace SteamNetworkLib.TestMod
                 RecordMetric("small-direct-message-exchange", "Small direct messages", "client-to-host-and-host-to-client", 3, 3, startedAt, 0, "3 direct messages sent by each side; Text/DataSync/custom transaction");
                 MarkPassed(phase);
             }
+        }
+
+        private RuntimeCheckoutResponseMessage HandleCheckoutRequest(
+            RuntimeCheckoutRequestMessage request,
+            CSteamID senderId)
+        {
+            _checkoutRequestSender = senderId;
+            _checkoutRequestId = request.RequestId;
+
+            bool valid = request.Body.ItemId == "pseudo" && request.Body.Quantity == 12;
+            _checkoutRequestHandled = valid;
+            if (!valid)
+            {
+                return new RuntimeCheckoutResponseMessage
+                {
+                    Success = false,
+                    Error = "Invalid checkout request"
+                };
+            }
+
+            return new RuntimeCheckoutResponseMessage(new RuntimeCheckoutResponsePayload
+            {
+                ReservationId = $"runtime-{senderId.m_SteamID}-7",
+                ApprovedQuantity = 7
+            })
+            {
+                Success = true
+            };
+        }
+
+        private IEnumerator RunHostRequestResponse(CSteamID clientId)
+        {
+            const string phase = "p2p.request-response";
+            if (_client!.SessionMode != NetworkSessionMode.LobbyP2P)
+            {
+                Fail(phase, $"Expected LobbyP2P transport, observed {_client.SessionMode}");
+                yield break;
+            }
+
+            yield return WaitFor(
+                () => _checkoutRequestHandled &&
+                      _checkoutRequestSender == clientId &&
+                      !string.IsNullOrWhiteSpace(_checkoutRequestId),
+                30f,
+                phase,
+                "Host did not handle the correlated checkout request from the joined client");
+
+            if (!_failed)
+            {
+                MarkPassed(phase);
+            }
+        }
+
+        private IEnumerator RunClientRequestResponse(CSteamID hostId)
+        {
+            const string phase = "p2p.request-response";
+            if (_client!.SessionMode != NetworkSessionMode.LobbyP2P)
+            {
+                Fail(phase, $"Expected LobbyP2P transport, observed {_client.SessionMode}");
+                yield break;
+            }
+
+            var request = new RuntimeCheckoutRequestMessage(new RuntimeCheckoutRequestPayload
+            {
+                ItemId = "pseudo",
+                Quantity = 12
+            });
+
+            var task = _checkoutRpc!.SendRequestAsync(hostId, request, TimeSpan.FromSeconds(10));
+            while (!task.IsCompleted)
+            {
+                yield return null;
+            }
+
+            if (task.IsFaulted)
+            {
+                Fail(phase, task.Exception?.GetBaseException().Message ?? "Request/response task failed");
+                yield break;
+            }
+
+            RuntimeCheckoutResponseMessage response = task.Result;
+            if (!response.Success ||
+                response.RequestId != request.RequestId ||
+                response.Body.ReservationId != $"runtime-{SteamUser.GetSteamID().m_SteamID}-7" ||
+                response.Body.ApprovedQuantity != 7)
+            {
+                Fail(phase, "Client received an invalid correlated checkout response");
+                yield break;
+            }
+
+            MarkPassed(phase);
         }
 
         private IEnumerator RunHostModelMessages(CSteamID clientId)
@@ -1167,6 +1318,8 @@ namespace SteamNetworkLib.TestMod
                 SteamMatchmaking.LeaveLobby(_lobbyId);
             }
 
+            _checkoutResponder?.Dispose();
+            _checkoutRpc?.Dispose();
             _client?.Dispose();
             SteamAPI.Shutdown();
         }

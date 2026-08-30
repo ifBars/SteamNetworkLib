@@ -21,7 +21,8 @@ namespace SteamNetworkLib.Core
     /// </summary>
     public class SteamP2PManager : IDisposable
     {
-        private readonly SteamLobbyManager _lobbyManager;
+        private readonly SteamLobbyManager? _lobbyManager;
+        private readonly bool _usesSteamTransport;
         private NetworkRules _rules = new NetworkRules();
         private bool _disposed = false;
         private readonly Dictionary<CSteamID, DateTime> _activeSessions = new Dictionary<CSteamID, DateTime>();
@@ -33,6 +34,7 @@ namespace SteamNetworkLib.Core
         private Callback<P2PSessionConnectFail_t>? _sessionConnectFailCallback;
 
         // Message handling
+        private readonly object _messageRegistryLock = new object();
         private readonly Dictionary<string, List<Action<P2PMessage, CSteamID>>> _messageHandlers = new Dictionary<string, List<Action<P2PMessage, CSteamID>>>();
         
         // Custom message type registry for dynamic message type creation
@@ -104,7 +106,8 @@ namespace SteamNetworkLib.Core
         public SteamP2PManager(SteamLobbyManager lobbyManager)
         {
             _lobbyManager = lobbyManager ?? throw new ArgumentNullException(nameof(lobbyManager));
-            InitializeP2P();
+            _usesSteamTransport = true;
+            InitializeSteamP2P();
         }
 
         /// <summary>
@@ -116,7 +119,15 @@ namespace SteamNetworkLib.Core
         {
             _lobbyManager = lobbyManager ?? throw new ArgumentNullException(nameof(lobbyManager));
             _rules = rules ?? new NetworkRules();
-            InitializeP2P();
+            _usesSteamTransport = true;
+            InitializeSteamP2P();
+        }
+
+        internal SteamP2PManager(NetworkRules rules)
+        {
+            _rules = rules ?? new NetworkRules();
+            _usesSteamTransport = false;
+            IsActive = true;
         }
 
         /// <summary>
@@ -241,11 +252,12 @@ namespace SteamNetworkLib.Core
             {
                 if (_packetSendOverride != null)
                 {
-                    bool handled = await _packetSendOverride(targetId, data, channel, sendType);
-                    if (handled)
-                    {
-                        return true;
-                    }
+                    return await _packetSendOverride(targetId, data, channel, sendType);
+                }
+
+                if (!_usesSteamTransport)
+                {
+                    return false;
                 }
 
                 await EnsureSessionAsync(targetId);
@@ -442,22 +454,27 @@ namespace SteamNetworkLib.Core
         /// <param name="handler">The handler function that will be called when messages of this type are received.</param>
         public void RegisterMessageHandler<T>(Action<T, CSteamID> handler) where T : P2PMessage, new()
         {
+            SubscribeMessageHandler(handler);
+        }
+
+        /// <summary>
+        /// Registers a handler for a specific message type and returns a subscription that removes only that handler.
+        /// </summary>
+        /// <typeparam name="T">The type of message to handle.</typeparam>
+        /// <param name="handler">The handler function that will be called when messages of this type are received.</param>
+        /// <returns>A disposable subscription for this handler.</returns>
+        public IDisposable SubscribeMessageHandler<T>(Action<T, CSteamID> handler) where T : P2PMessage, new()
+        {
+            if (handler == null)
+            {
+                throw new ArgumentNullException(nameof(handler));
+            }
+
             var messageType = new T().MessageType;
-
-            // Automatically register custom message types
-            if (!_customMessageTypes.ContainsKey(messageType))
-            {
-                _customMessageTypes[messageType] = typeof(T);
-            }
-
-            if (!_messageHandlers.ContainsKey(messageType))
-            {
-                _messageHandlers[messageType] = new List<Action<P2PMessage, CSteamID>>();
-            }
 
 #if IL2CPP
             // IL2CPP-specific handler registration to avoid generic type issues
-            _messageHandlers[messageType].Add(new System.Action<P2PMessage, CSteamID>((message, senderId) =>
+            Action<P2PMessage, CSteamID> wrappedHandler = new System.Action<P2PMessage, CSteamID>((message, senderId) =>
             {
                 // Use explicit type check and cast to avoid IL2CPP generic issues
                 if (message != null && message.GetType() == typeof(T))
@@ -484,16 +501,33 @@ namespace SteamNetworkLib.Core
                         Console.WriteLine($"Error calling handler for assignable type: {ex.Message}");
                     }
                 }
-            }));
+            });
 #else
-            _messageHandlers[messageType].Add((message, senderId) =>
+            Action<P2PMessage, CSteamID> wrappedHandler = (message, senderId) =>
             {
                 if (message is T typedMessage)
                 {
                     handler(typedMessage, senderId);
                 }
-            });
+            };
 #endif
+
+            lock (_messageRegistryLock)
+            {
+                if (!_customMessageTypes.ContainsKey(messageType))
+                {
+                    _customMessageTypes[messageType] = typeof(T);
+                }
+
+                if (!_messageHandlers.ContainsKey(messageType))
+                {
+                    _messageHandlers[messageType] = new List<Action<P2PMessage, CSteamID>>();
+                }
+
+                _messageHandlers[messageType].Add(wrappedHandler);
+            }
+
+            return new MessageHandlerSubscription(() => RemoveMessageHandler(messageType, wrappedHandler));
         }
 
         /// <summary>
@@ -503,7 +537,27 @@ namespace SteamNetworkLib.Core
         public void UnregisterMessageHandler<T>() where T : P2PMessage, new()
         {
             var messageType = new T().MessageType;
-            _messageHandlers.Remove(messageType);
+            lock (_messageRegistryLock)
+            {
+                _messageHandlers.Remove(messageType);
+            }
+        }
+
+        private void RemoveMessageHandler(string messageType, Action<P2PMessage, CSteamID> handler)
+        {
+            lock (_messageRegistryLock)
+            {
+                if (!_messageHandlers.TryGetValue(messageType, out var handlers))
+                {
+                    return;
+                }
+
+                handlers.Remove(handler);
+                if (handlers.Count == 0)
+                {
+                    _messageHandlers.Remove(messageType);
+                }
+            }
         }
 
         /// <summary>
@@ -516,10 +570,13 @@ namespace SteamNetworkLib.Core
         public void RegisterCustomMessageType<T>() where T : P2PMessage, new()
         {
             var messageType = new T().MessageType;
-            if (!_customMessageTypes.ContainsKey(messageType))
+            lock (_messageRegistryLock)
             {
-                _customMessageTypes[messageType] = typeof(T);
-                Console.WriteLine($"[SteamNetworkLib] Registered custom message type: {messageType}");
+                if (!_customMessageTypes.ContainsKey(messageType))
+                {
+                    _customMessageTypes[messageType] = typeof(T);
+                    Console.WriteLine($"[SteamNetworkLib] Registered custom message type: {messageType}");
+                }
             }
         }
 
@@ -530,7 +587,10 @@ namespace SteamNetworkLib.Core
         public void UnregisterCustomMessageType<T>() where T : P2PMessage, new()
         {
             var messageType = new T().MessageType;
-            _customMessageTypes.Remove(messageType);
+            lock (_messageRegistryLock)
+            {
+                _customMessageTypes.Remove(messageType);
+            }
         }
 
         /// <summary>
@@ -538,7 +598,7 @@ namespace SteamNetworkLib.Core
         /// </summary>
         public void ProcessIncomingPackets()
         {
-            if (!IsActive) return;
+            if (!IsActive || !_usesSteamTransport) return;
 
             try
             {
@@ -615,6 +675,12 @@ namespace SteamNetworkLib.Core
                 return false;
             }
 
+            if (!_usesSteamTransport)
+            {
+                _activeSessions[playerId] = DateTime.UtcNow;
+                return true;
+            }
+
             bool success = SteamNetworking.AcceptP2PSessionWithUser(playerId);
             if (success)
             {
@@ -635,7 +701,10 @@ namespace SteamNetworkLib.Core
                 return;
             }
 
-            SteamNetworking.CloseP2PSessionWithUser(playerId);
+            if (_usesSteamTransport)
+            {
+                SteamNetworking.CloseP2PSessionWithUser(playerId);
+            }
             _activeSessions.Remove(playerId);
         }
 
@@ -655,6 +724,11 @@ namespace SteamNetworkLib.Core
         /// <returns>The current P2P session state information.</returns>
         public P2PSessionState_t GetSessionState(CSteamID playerId)
         {
+            if (!_usesSteamTransport)
+            {
+                return default;
+            }
+
             P2PSessionState_t sessionState;
             SteamNetworking.GetP2PSessionState(playerId, out sessionState);
             return sessionState;
@@ -678,14 +752,14 @@ namespace SteamNetworkLib.Core
             }
         }
 
-        private void InitializeP2P()
+        private void InitializeSteamP2P()
         {
             if (!SteamNetworkUtils.IsSteamInitialized())
             {
                 throw new SteamNetworkException(
                     "Steam is not initialized. Make sure Steam is running and SteamAPI.Init() was called.",
                     SteamNetworkErrorKind.SteamUnavailable,
-                    operation: nameof(InitializeP2P),
+                    operation: nameof(InitializeSteamP2P),
                     isRetryable: true);
             }
 
@@ -698,7 +772,7 @@ namespace SteamNetworkLib.Core
 #endif
             // Apply relay rule
             try { SteamNetworking.AllowP2PPacketRelay(_rules.EnableRelay); } catch { }
-            _lobbyManager.OnLobbyJoined += OnLobbyJoinedAcceptAllPeers;
+            _lobbyManager!.OnLobbyJoined += OnLobbyJoinedAcceptAllPeers;
             _lobbyManager.OnMemberJoined += OnMemberJoinedAcceptPeer;
             IsActive = true;
 
@@ -827,12 +901,18 @@ namespace SteamNetworkLib.Core
         {
             if (_disposed) return;
             if (e.Member == null) return;
+            if (_lobbyManager == null) return;
             if (e.Member.SteamId == _lobbyManager.LocalPlayerID) return;
             TryAdmitPeer(e.Member.SteamId);
         }
 
         private void AcceptAllLobbyMembers()
         {
+            if (_lobbyManager == null)
+            {
+                return;
+            }
+
             try
             {
                 var members = _lobbyManager.GetLobbyMembers();
@@ -868,7 +948,7 @@ namespace SteamNetworkLib.Core
 
         private bool IsInSession()
         {
-            if (_lobbyManager.IsInLobby)
+            if (_lobbyManager?.IsInLobby == true)
             {
                 return true;
             }
@@ -890,7 +970,7 @@ namespace SteamNetworkLib.Core
 
         private List<MemberInfo> GetSessionMembers()
         {
-            if (_lobbyManager.IsInLobby)
+            if (_lobbyManager?.IsInLobby == true)
             {
                 return _lobbyManager.GetLobbyMembers();
             }
@@ -924,7 +1004,7 @@ namespace SteamNetworkLib.Core
                 }
             }
 
-            return _lobbyManager.LocalPlayerID;
+            return _lobbyManager?.LocalPlayerID ?? CSteamID.Nil;
         }
 
         private async Task EnsureSessionAsync(CSteamID targetId)
@@ -947,7 +1027,15 @@ namespace SteamNetworkLib.Core
         {
             try
             {
-                if (_customMessageTypes.TryGetValue(messageType, out var messageTypeInfo))
+                Type? messageTypeInfo;
+                bool hasHandlers;
+                lock (_messageRegistryLock)
+                {
+                    _customMessageTypes.TryGetValue(messageType, out messageTypeInfo);
+                    hasHandlers = _messageHandlers.ContainsKey(messageType);
+                }
+
+                if (messageTypeInfo != null)
                 {
                     var method = typeof(MessageSerializer).GetMethod("CreateMessage")
                         ?.MakeGenericMethod(messageTypeInfo);
@@ -957,7 +1045,7 @@ namespace SteamNetworkLib.Core
                         return (P2PMessage?)method.Invoke(null, parameters);
                     }
                 }
-                else if (_messageHandlers.ContainsKey(messageType))
+                else if (hasHandlers)
                 {
                     Console.WriteLine($"[SteamNetworkLib] Received unregistered custom message type '{messageType}'. " +
                         $"Call RegisterCustomMessageType<YourMessageClass>() during initialization to enable receiving this message type.");
@@ -1085,18 +1173,23 @@ namespace SteamNetworkLib.Core
                     OnMessageReceived?.Invoke(this, new P2PMessageReceivedEventArgs(message, senderId, channel));
 #endif
 
-                    if (_messageHandlers.TryGetValue(messageType, out var handlers))
+                    Action<P2PMessage, CSteamID>[] handlers;
+                    lock (_messageRegistryLock)
                     {
-                        foreach (var handler in handlers)
+                        handlers = _messageHandlers.TryGetValue(messageType, out var registeredHandlers)
+                            ? registeredHandlers.ToArray()
+                            : Array.Empty<Action<P2PMessage, CSteamID>>();
+                    }
+
+                    foreach (var handler in handlers)
+                    {
+                        try
                         {
-                            try
-                            {
-                                handler(message, senderId);
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"Error in message handler for {messageType}: {ex.Message}");
-                            }
+                            handler(message, senderId);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error in message handler for {messageType}: {ex.Message}");
                         }
                     }
                 }
@@ -1104,6 +1197,33 @@ namespace SteamNetworkLib.Core
             catch (Exception ex)
             {
                 Console.WriteLine($"Error processing SteamNetworkLib message: {ex.Message}");
+            }
+        }
+
+        private sealed class MessageHandlerSubscription : IDisposable
+        {
+            private readonly Action _dispose;
+            private readonly object _syncRoot = new object();
+            private bool _disposed;
+
+            public MessageHandlerSubscription(Action dispose)
+            {
+                _dispose = dispose;
+            }
+
+            public void Dispose()
+            {
+                lock (_syncRoot)
+                {
+                    if (_disposed)
+                    {
+                        return;
+                    }
+
+                    _disposed = true;
+                }
+
+                _dispose();
             }
         }
 
@@ -1126,7 +1246,10 @@ namespace SteamNetworkLib.Core
         {
             if (rules == null) return;
             _rules = rules;
-            try { SteamNetworking.AllowP2PPacketRelay(_rules.EnableRelay); } catch { }
+            if (_usesSteamTransport)
+            {
+                try { SteamNetworking.AllowP2PPacketRelay(_rules.EnableRelay); } catch { }
+            }
         }
 
         private void OnSessionConnectFailCallback(P2PSessionConnectFail_t result)
@@ -1156,8 +1279,11 @@ namespace SteamNetworkLib.Core
             try
             {
                 IsActive = false;
-                _lobbyManager.OnLobbyJoined -= OnLobbyJoinedAcceptAllPeers;
-                _lobbyManager.OnMemberJoined -= OnMemberJoinedAcceptPeer;
+                if (_lobbyManager != null)
+                {
+                    _lobbyManager.OnLobbyJoined -= OnLobbyJoinedAcceptAllPeers;
+                    _lobbyManager.OnMemberJoined -= OnMemberJoinedAcceptPeer;
+                }
 
                 foreach (var sessionId in _activeSessions.Keys.ToList())
                 {
@@ -1167,7 +1293,11 @@ namespace SteamNetworkLib.Core
                 _sessionRequestCallback?.Dispose();
                 _sessionConnectFailCallback?.Dispose();
 
-                _messageHandlers.Clear();
+                lock (_messageRegistryLock)
+                {
+                    _messageHandlers.Clear();
+                    _customMessageTypes.Clear();
+                }
                 _activeSessions.Clear();
                 _sendQueue.Clear();
             }
@@ -1232,7 +1362,7 @@ namespace SteamNetworkLib.Core
         /// <returns>True if test packets were sent successfully to at least one member</returns>
         public bool BroadcastTestPacket()
         {
-            if (!_lobbyManager.IsInLobby)
+            if (_lobbyManager?.IsInLobby != true)
             {
                 return false;
             }

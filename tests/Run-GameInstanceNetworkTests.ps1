@@ -14,6 +14,7 @@ param(
     [string]$InstanceRoot = "",
     [string]$HostSteamId = "76561199320154780",
     [string]$ClientSteamId = "76561199485712034",
+    [string]$GoldbergDllPath = "",
     [int]$HostInitDelaySeconds = 25,
     [int]$TestTimeoutSeconds = 90,
     [string]$MetricsOutputPath = "",
@@ -176,6 +177,36 @@ language=english
     Set-Content -LiteralPath (Join-Path $configDir "configs.user.ini") -Value $configContent -Encoding UTF8
 }
 
+function Resolve-GoldbergDll {
+    param(
+        [string]$ConfiguredPath,
+        [string]$SourceGamePath
+    )
+
+    $candidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($ConfiguredPath)) {
+        $candidates += $ConfiguredPath
+    }
+
+    $pluginDir = Join-Path $SourceGamePath "Schedule I_Data\Plugins\x86_64"
+    $candidates += (Join-Path $pluginDir "steam_api64.dll.goldberg")
+    $candidates += (Join-Path $pluginDir "steam_api64.dll")
+
+    foreach ($candidate in $candidates | Select-Object -Unique) {
+        if (-not (Test-Path -LiteralPath $candidate)) {
+            continue
+        }
+
+        $file = Get-Item -LiteralPath $candidate
+        if ($file.VersionInfo.CompanyName -eq "GSE" -or
+            $file.VersionInfo.FileDescription -match "Goldberg|GSE") {
+            return $file.FullName
+        }
+    }
+
+    throw "No Goldberg/GSE steam_api64 DLL was found. Provide -GoldbergDllPath or preserve one as steam_api64.dll.goldberg beside the game plugin."
+}
+
 function Stop-TestProcess {
     param($Process, [string]$Name)
 
@@ -194,7 +225,8 @@ Write-Host "GamePath: $GamePath" -ForegroundColor Gray
 
 Assert-Path $GamePath "Game path"
 Assert-Path (Join-Path $GamePath "Schedule I.exe") "Schedule I executable"
-Assert-Path (Join-Path $GamePath "Schedule I_Data\Plugins\x86_64\steam_api64.dll") "Goldberg steam_api64.dll"
+$GoldbergDllPath = Resolve-GoldbergDll -ConfiguredPath $GoldbergDllPath -SourceGamePath $GamePath
+Write-Host "Goldberg source: $GoldbergDllPath" -ForegroundColor Gray
 
 if ([string]::IsNullOrWhiteSpace($InstanceRoot)) {
     $InstanceRoot = Join-Path (Split-Path -Parent $GamePath) "SteamNetworkLib.GameInstances"
@@ -217,7 +249,7 @@ try {
 
     Write-Step "Step 1: Build test mod"
     $testModProject = Join-Path $PSScriptRoot "SteamNetworkLib.TestMod\SteamNetworkLib.TestMod.csproj"
-    dotnet build $testModProject -c Mono
+    dotnet build $testModProject -c Mono -p:AutomateLocalDeployment=false
     if ($LASTEXITCODE -ne 0) {
         throw "Test mod build failed"
     }
@@ -233,6 +265,9 @@ try {
     Copy-GameFiles -SourcePath $GamePath -DestinationPath $clientDir
 
     foreach ($instance in @($hostDir, $clientDir)) {
+        $steamApiPath = Join-Path $instance "Schedule I_Data\Plugins\x86_64\steam_api64.dll"
+        Copy-Item -LiteralPath $GoldbergDllPath -Destination $steamApiPath -Force
+
         $modsDir = Join-Path $instance "Mods"
         $userLibsDir = Join-Path $instance "UserLibs"
         New-Item -ItemType Directory -Path $userLibsDir -Force | Out-Null

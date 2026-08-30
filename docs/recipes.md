@@ -87,6 +87,56 @@ await client.SendMessageToPlayerAsync(hostId, new TransactionMessage(new Transac
 }));
 ```
 
+## Host-approved client request
+
+Use this shape when the client wants to do something that affects shared state, but the host must validate it first.
+
+```csharp
+public class CheckoutRequest : TypedP2PMessage<CheckoutRequestPayload>
+{
+    public override string MessageType => "MYMOD_CHECKOUT_REQUEST";
+
+    public CheckoutRequest()
+    {
+    }
+
+    public CheckoutRequest(CheckoutRequestPayload payload)
+        : base(payload)
+    {
+    }
+}
+
+public class CheckoutRequestPayload
+{
+    public string RequestId { get; set; } = string.Empty;
+    public string ItemId { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+}
+
+// Host-side handler.
+client.RegisterMessageHandler<CheckoutRequest>((message, sender) =>
+{
+    if (!client.IsHost)
+    {
+        return;
+    }
+
+    var request = message.Payload;
+    int approved = Math.Min(request.Quantity, GetAvailableStock(request.ItemId));
+    ApplyHostApprovedCheckout(sender, request.ItemId, approved);
+});
+
+// Client-side request.
+await client.SendMessageToPlayerAsync(hostId, new CheckoutRequest(new CheckoutRequestPayload
+{
+    RequestId = Guid.NewGuid().ToString("N"),
+    ItemId = "pseudo",
+    Quantity = 10
+}));
+```
+
+The client sends intent only. The host owns final state and publishes the result through a host snapshot, SyncVar, or explicit response message.
+
 ## Host-authoritative sync var
 
 ```csharp
@@ -127,13 +177,79 @@ var cfg = new DataSyncMessage { Key = "mod_config", Value = JsonConvert.Serializ
 await client.BroadcastMessageAsync(cfg);
 ```
 
+## Host-owned state snapshot
+
+```csharp
+public class LabelSnapshot
+{
+    public Dictionary<string, string> Labels { get; set; } = new Dictionary<string, string>();
+    public long Revision { get; set; }
+}
+
+var options = new NetworkSyncOptions { KeyPrefix = "MyLabels_" };
+var labels = client.CreateHostSyncVar("Labels", new LabelSnapshot(), options);
+
+labels.OnValueChanged += (oldValue, newValue) =>
+{
+    ApplyLabels(newValue.Labels);
+};
+
+// Apply the value that may have loaded before the handler was attached.
+ApplyLabels(labels.Value.Labels);
+
+if (client.IsHost)
+{
+    labels.Value = new LabelSnapshot
+    {
+        Labels = BuildCurrentLabels(),
+        Revision = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+    };
+}
+```
+
+Use snapshots for late joiners and resyncs. Use smaller P2P messages or SyncVars for frequent edits.
+
+## Poll member data when callbacks are unreliable
+
+```csharp
+private ClientSyncVar<string> actionRequests;
+private readonly HashSet<string> handledRequests = new HashSet<string>();
+private float nextPollAt;
+
+public override void OnUpdate()
+{
+    client.ProcessIncomingMessages();
+
+    if (!client.IsHost || Time.realtimeSinceStartup < nextPollAt)
+    {
+        return;
+    }
+
+    nextPollAt = Time.realtimeSinceStartup + 2f;
+    actionRequests.Refresh();
+
+    foreach (var pair in actionRequests.GetAllValues())
+    {
+        if (string.IsNullOrWhiteSpace(pair.Value) || !handledRequests.Add(pair.Value))
+        {
+            continue;
+        }
+
+        HandleClientActionRequest(pair.Key, pair.Value);
+    }
+}
+```
+
+Keep this poll slow. It is a reliability fallback for important state, not a per-frame sync loop.
+
 ## RPC-like event to a single player
 
 ```csharp
 var evt = new EventMessage
 {
-    EventType = "give_item",
-    Payload = "soil")
+    EventType = "game",
+    EventName = "give_item",
+    EventData = "soil"
 };
 await client.SendMessageToPlayerAsync(targetId, evt);
 ```
@@ -164,7 +280,7 @@ for (int i = 0; i < total; i++)
         IsFileData = true,
         ChunkData = slice
     };
-    await client.SendMessageToPlayerAsync(hostId, msg, channel: 1);
+    await client.SendMessageToPlayerAsync(hostId, msg);
 }
 ```
 

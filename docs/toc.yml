@@ -12,6 +12,8 @@
   href: sync-vars.md
 - name: P2P Messaging
   href: p2p-messaging.md
+- name: Patterns from Real Mods
+  href: consumer-patterns.md
 - name: Dedicated Server Compatibility
   href: dedicated-server-compatibility.md
 - name: Network Rules

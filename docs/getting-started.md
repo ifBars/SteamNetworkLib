@@ -179,5 +179,6 @@ From here, pick the guide you need next:
 - Lobby Management: create/join/leave/invite
 - Data Synchronization: lobby and member data
 - P2P Messaging: typed messages, files, channels
+- Patterns from Real Mods: common adapter, snapshot, request, and polling shapes
 - Events and Errors: event model and exceptions
 - Recipes: copy-paste snippets for common tasks
