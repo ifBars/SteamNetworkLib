@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <Configurations>Mono;Il2cpp;MonoDebug;Il2cppDebug;Documentation</Configurations>
     <LangVersion>latest</LangVersion>
+    <AutomateLocalDeployment Condition="'$(AutomateLocalDeployment)'==''">true</AutomateLocalDeployment>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Mono'">
@@ -76,6 +77,10 @@
       <HintPath>$(MelonLoaderIl2CppPath)\Il2Cppmscorlib.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(MelonLoaderNet6Path)\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)'=='Il2cppDebug'">
@@ -93,6 +98,10 @@
     </Reference>
     <Reference Include="Il2Cppmscorlib">
       <HintPath>$(MelonLoaderIl2CppPath)\Il2Cppmscorlib.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(MelonLoaderNet6Path)\Il2CppInterop.Runtime.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
@@ -116,7 +125,7 @@
     <ProjectReference Include="..\..\SteamNetworkLib.csproj" />
   </ItemGroup>
 
-  <Target Name="CopyToMods" AfterTargets="Build">
+  <Target Name="CopyToMods" AfterTargets="Build" Condition="'$(AutomateLocalDeployment)'=='true'">
     <PropertyGroup>
       <ModsPath>$(MonoGameInstallPath)\Mods</ModsPath>
     </PropertyGroup>
