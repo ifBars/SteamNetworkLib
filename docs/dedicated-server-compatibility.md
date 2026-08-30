@@ -5,13 +5,13 @@ SteamNetworkLib supports two Schedule 1 networking modes through the same consum
 - `LobbyP2P`: the vanilla game path, using Steam lobbies plus Steam P2P packets.
 - `DedicatedRelay`: a dedicated-server path, using DedicatedServerMod custom messaging. The server may route that messaging over FishNet RPC or Steam Networking Sockets.
 
-Consumer mods should keep using `SteamNetworkClient`, `ProcessIncomingMessages()`, lobby/member data methods, and typed P2P messages. SteamNetworkLib detects the active mode at runtime.
+Consumer mods should keep using `SteamNetworkClient`, `ProcessIncomingMessages()`, lobby/member data methods, and typed P2P messages. SteamNetworkLib detects the available backend at initialization and the active session mode at runtime.
 
 ## Runtime Behavior
 
 When the player is in a vanilla Steam lobby, SteamNetworkLib keeps using the existing Steam lobby and Steam P2P APIs.
 
-When the player is connected to a DedicatedServerMod server, SteamNetworkLib reflects the DedicatedServerMod `CustomMessaging` API and registers a compatibility session. DedicatedServerMod then sends a virtual lobby snapshot containing:
+When DedicatedServerMod is available, SteamNetworkLib can initialize its relay backend without client Steamworks. It reflects the DedicatedServerMod `CustomMessaging` API and registers a compatibility session once the messaging endpoint is ready. DedicatedServerMod then sends a virtual lobby snapshot containing:
 
 - local player SteamID
 - server SteamID when available
@@ -43,7 +43,7 @@ Reliability is still selected with the normal SNL APIs, but the dedicated path d
 
 Most mods do not need dedicated-server-specific code. Keep these practices:
 
-- Call `client.Initialize()` once after Steam is available.
+- Call `client.Initialize()` after Steam or DedicatedServerMod has loaded. Dedicated servers do not require client Steamworks.
 - Call `client.ProcessIncomingMessages()` every update tick.
 - Use `client.IsInLobby` instead of checking vanilla lobby internals.
 - Use `client.IsHost` for host-authoritative behavior. In dedicated sessions, the virtual owner is selected by the server compatibility layer.
