@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace SteamNetworkLib.Core
 {
-    internal sealed class DedicatedServerMessagingBridge : IDisposable
+    internal sealed class DedicatedServerMessagingBridge : IDedicatedServerMessagingBridge
     {
         private static readonly string[] DedicatedSignalCommands =
         {
@@ -25,10 +25,14 @@ namespace SteamNetworkLib.Core
         private readonly MethodInfo? _sendToServerMethod;
         private readonly EventInfo _clientMessageEvent;
         private readonly Action<string, string> _messageCallback;
+        private readonly EventInfo? _endpointReadyEvent;
+        private readonly Action _endpointReadyCallback;
 
         private bool _disposed;
 
         public event Action<string, string>? MessageReceived;
+
+        public event Action? EndpointReady;
 
         public bool IsDedicatedContextLikely { get; private set; }
 
@@ -36,15 +40,21 @@ namespace SteamNetworkLib.Core
             Type customMessagingType,
             MethodInfo? trySendToServerMethod,
             MethodInfo? sendToServerMethod,
-            EventInfo clientMessageEvent)
+            EventInfo clientMessageEvent,
+            EventInfo? endpointReadyEvent,
+            bool isEndpointReady)
         {
             _customMessagingType = customMessagingType;
             _trySendToServerMethod = trySendToServerMethod;
             _sendToServerMethod = sendToServerMethod;
             _clientMessageEvent = clientMessageEvent;
             _messageCallback = HandleClientMessageReceived;
+            _endpointReadyEvent = endpointReadyEvent;
+            _endpointReadyCallback = HandleEndpointReady;
+            IsDedicatedContextLikely = isEndpointReady;
 
             _clientMessageEvent.AddEventHandler(null, _messageCallback);
+            _endpointReadyEvent?.AddEventHandler(null, _endpointReadyCallback);
         }
 
         public static DedicatedServerMessagingBridge? TryCreate()
@@ -80,7 +90,31 @@ namespace SteamNetworkLib.Core
                 return null;
             }
 
-            return new DedicatedServerMessagingBridge(customMessagingType, trySend, send, clientEvent);
+            EventInfo? endpointReadyEvent = customMessagingType.GetEvent("EndpointReady", BindingFlags.Public | BindingFlags.Static);
+            PropertyInfo? isEndpointReadyProperty = customMessagingType.GetProperty(
+                "IsEndpointReady",
+                BindingFlags.Public | BindingFlags.Static);
+
+            bool isEndpointReady = false;
+            try
+            {
+                if (isEndpointReadyProperty?.GetValue(null) is bool ready)
+                {
+                    isEndpointReady = ready;
+                }
+            }
+            catch
+            {
+                // The endpoint can still signal readiness later.
+            }
+
+            return new DedicatedServerMessagingBridge(
+                customMessagingType,
+                trySend,
+                send,
+                clientEvent,
+                endpointReadyEvent,
+                isEndpointReady);
         }
 
         public bool TrySendToServer(string command, string payload)
@@ -127,6 +161,7 @@ namespace SteamNetworkLib.Core
             try
             {
                 _clientMessageEvent.RemoveEventHandler(null, _messageCallback);
+                _endpointReadyEvent?.RemoveEventHandler(null, _endpointReadyCallback);
             }
             catch
             {
@@ -134,6 +169,12 @@ namespace SteamNetworkLib.Core
             }
 
             _disposed = true;
+        }
+
+        private void HandleEndpointReady()
+        {
+            IsDedicatedContextLikely = true;
+            EndpointReady?.Invoke();
         }
 
         private void HandleClientMessageReceived(string command, string payload)

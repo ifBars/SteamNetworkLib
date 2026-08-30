@@ -21,7 +21,8 @@ namespace SteamNetworkLib.Core
     /// </summary>
     public class SteamP2PManager : IDisposable
     {
-        private readonly SteamLobbyManager _lobbyManager;
+        private readonly SteamLobbyManager? _lobbyManager;
+        private readonly bool _usesSteamTransport;
         private NetworkRules _rules = new NetworkRules();
         private bool _disposed = false;
         private readonly Dictionary<CSteamID, DateTime> _activeSessions = new Dictionary<CSteamID, DateTime>();
@@ -104,7 +105,8 @@ namespace SteamNetworkLib.Core
         public SteamP2PManager(SteamLobbyManager lobbyManager)
         {
             _lobbyManager = lobbyManager ?? throw new ArgumentNullException(nameof(lobbyManager));
-            InitializeP2P();
+            _usesSteamTransport = true;
+            InitializeSteamP2P();
         }
 
         /// <summary>
@@ -116,7 +118,15 @@ namespace SteamNetworkLib.Core
         {
             _lobbyManager = lobbyManager ?? throw new ArgumentNullException(nameof(lobbyManager));
             _rules = rules ?? new NetworkRules();
-            InitializeP2P();
+            _usesSteamTransport = true;
+            InitializeSteamP2P();
+        }
+
+        internal SteamP2PManager(NetworkRules rules)
+        {
+            _rules = rules ?? new NetworkRules();
+            _usesSteamTransport = false;
+            IsActive = true;
         }
 
         /// <summary>
@@ -241,11 +251,7 @@ namespace SteamNetworkLib.Core
             {
                 if (_packetSendOverride != null)
                 {
-                    bool handled = await _packetSendOverride(targetId, data, channel, sendType);
-                    if (handled)
-                    {
-                        return true;
-                    }
+                    return await _packetSendOverride(targetId, data, channel, sendType);
                 }
 
                 await EnsureSessionAsync(targetId);
@@ -538,7 +544,7 @@ namespace SteamNetworkLib.Core
         /// </summary>
         public void ProcessIncomingPackets()
         {
-            if (!IsActive) return;
+            if (!IsActive || !_usesSteamTransport) return;
 
             try
             {
@@ -615,6 +621,12 @@ namespace SteamNetworkLib.Core
                 return false;
             }
 
+            if (!_usesSteamTransport)
+            {
+                _activeSessions[playerId] = DateTime.UtcNow;
+                return true;
+            }
+
             bool success = SteamNetworking.AcceptP2PSessionWithUser(playerId);
             if (success)
             {
@@ -635,7 +647,10 @@ namespace SteamNetworkLib.Core
                 return;
             }
 
-            SteamNetworking.CloseP2PSessionWithUser(playerId);
+            if (_usesSteamTransport)
+            {
+                SteamNetworking.CloseP2PSessionWithUser(playerId);
+            }
             _activeSessions.Remove(playerId);
         }
 
@@ -655,6 +670,11 @@ namespace SteamNetworkLib.Core
         /// <returns>The current P2P session state information.</returns>
         public P2PSessionState_t GetSessionState(CSteamID playerId)
         {
+            if (!_usesSteamTransport)
+            {
+                return default;
+            }
+
             P2PSessionState_t sessionState;
             SteamNetworking.GetP2PSessionState(playerId, out sessionState);
             return sessionState;
@@ -678,14 +698,14 @@ namespace SteamNetworkLib.Core
             }
         }
 
-        private void InitializeP2P()
+        private void InitializeSteamP2P()
         {
             if (!SteamNetworkUtils.IsSteamInitialized())
             {
                 throw new SteamNetworkException(
                     "Steam is not initialized. Make sure Steam is running and SteamAPI.Init() was called.",
                     SteamNetworkErrorKind.SteamUnavailable,
-                    operation: nameof(InitializeP2P),
+                    operation: nameof(InitializeSteamP2P),
                     isRetryable: true);
             }
 
@@ -698,7 +718,7 @@ namespace SteamNetworkLib.Core
 #endif
             // Apply relay rule
             try { SteamNetworking.AllowP2PPacketRelay(_rules.EnableRelay); } catch { }
-            _lobbyManager.OnLobbyJoined += OnLobbyJoinedAcceptAllPeers;
+            _lobbyManager!.OnLobbyJoined += OnLobbyJoinedAcceptAllPeers;
             _lobbyManager.OnMemberJoined += OnMemberJoinedAcceptPeer;
             IsActive = true;
 
@@ -827,12 +847,18 @@ namespace SteamNetworkLib.Core
         {
             if (_disposed) return;
             if (e.Member == null) return;
+            if (_lobbyManager == null) return;
             if (e.Member.SteamId == _lobbyManager.LocalPlayerID) return;
             TryAdmitPeer(e.Member.SteamId);
         }
 
         private void AcceptAllLobbyMembers()
         {
+            if (_lobbyManager == null)
+            {
+                return;
+            }
+
             try
             {
                 var members = _lobbyManager.GetLobbyMembers();
@@ -868,7 +894,7 @@ namespace SteamNetworkLib.Core
 
         private bool IsInSession()
         {
-            if (_lobbyManager.IsInLobby)
+            if (_lobbyManager?.IsInLobby == true)
             {
                 return true;
             }
@@ -890,7 +916,7 @@ namespace SteamNetworkLib.Core
 
         private List<MemberInfo> GetSessionMembers()
         {
-            if (_lobbyManager.IsInLobby)
+            if (_lobbyManager?.IsInLobby == true)
             {
                 return _lobbyManager.GetLobbyMembers();
             }
@@ -924,7 +950,7 @@ namespace SteamNetworkLib.Core
                 }
             }
 
-            return _lobbyManager.LocalPlayerID;
+            return _lobbyManager?.LocalPlayerID ?? CSteamID.Nil;
         }
 
         private async Task EnsureSessionAsync(CSteamID targetId)
@@ -1126,7 +1152,10 @@ namespace SteamNetworkLib.Core
         {
             if (rules == null) return;
             _rules = rules;
-            try { SteamNetworking.AllowP2PPacketRelay(_rules.EnableRelay); } catch { }
+            if (_usesSteamTransport)
+            {
+                try { SteamNetworking.AllowP2PPacketRelay(_rules.EnableRelay); } catch { }
+            }
         }
 
         private void OnSessionConnectFailCallback(P2PSessionConnectFail_t result)
@@ -1156,8 +1185,11 @@ namespace SteamNetworkLib.Core
             try
             {
                 IsActive = false;
-                _lobbyManager.OnLobbyJoined -= OnLobbyJoinedAcceptAllPeers;
-                _lobbyManager.OnMemberJoined -= OnMemberJoinedAcceptPeer;
+                if (_lobbyManager != null)
+                {
+                    _lobbyManager.OnLobbyJoined -= OnLobbyJoinedAcceptAllPeers;
+                    _lobbyManager.OnMemberJoined -= OnMemberJoinedAcceptPeer;
+                }
 
                 foreach (var sessionId in _activeSessions.Keys.ToList())
                 {
@@ -1232,7 +1264,7 @@ namespace SteamNetworkLib.Core
         /// <returns>True if test packets were sent successfully to at least one member</returns>
         public bool BroadcastTestPacket()
         {
-            if (!_lobbyManager.IsInLobby)
+            if (_lobbyManager?.IsInLobby != true)
             {
                 return false;
             }
