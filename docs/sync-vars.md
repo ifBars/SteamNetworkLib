@@ -300,7 +300,7 @@ var data = client.CreateHostSyncVar("Data", myValue, options);
 
 ### Raw string payloads
 
-Use `RawStringSyncSerializer` when the value is already encoded and must be stored exactly as-is. This is useful for compatibility with existing lobby-data formats, pipe-delimited protocol strings, compact save snapshots, or a mod that already serializes state outside SteamNetworkLib.
+Use `RawStringSyncSerializer` when the value is already encoded and non-empty values must be stored exactly as-is. This is useful for compatibility with existing lobby-data formats, pipe-delimited protocol strings, or a mod that already serializes state outside SteamNetworkLib.
 
 ```csharp
 var rawOptions = new NetworkSyncOptions
@@ -315,7 +315,9 @@ var hostState = client.CreateHostSyncVar("HostState", "", rawOptions);
 hostState.Value = "stock|pseudo|12|420";
 ```
 
-Prefer the default `JsonSyncSerializer` for normal typed values. `RawStringSyncSerializer` only supports `string`; it intentionally rejects other types so accidental typed state does not get converted through `ToString()`. Empty strings are preserved with an internal sentinel because Steam lobby/member data APIs also use empty strings to represent missing keys.
+Prefer the default `JsonSyncSerializer` for normal typed values. `RawStringSyncSerializer` only supports `string`; it intentionally rejects other types so accidental typed state does not get converted through `ToString()`.
+
+`RawStringSyncSerializer` does not add framing, escaping, or sentinel values. Null values are normalized to an empty string. Steam lobby and member data also return an empty string for missing keys, so SyncVars cannot distinguish an empty raw value from absent data on another peer. Use an empty default value when empty should mean reset or clear; use an explicit non-empty protocol token when empty and missing must remain distinct.
 
 ## Complete Example
 

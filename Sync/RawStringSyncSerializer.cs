@@ -3,51 +3,30 @@ using System;
 namespace SteamNetworkLib.Sync
 {
     /// <summary>
-    /// Sync serializer that stores string values exactly as provided, without JSON quoting.
+    /// Sync serializer that passes string values through without JSON encoding.
     /// </summary>
     /// <remarks>
-    /// Use this for non-empty pre-serialized payloads, pipe-delimited state, compact protocol strings,
-    /// or compatibility data that must match another mod's existing lobby-data format. Empty strings
-    /// are stored with an internal sentinel so they can round-trip through Steam APIs that return an
-    /// empty string for missing keys.
+    /// Use this for pre-serialized payloads, pipe-delimited state, compact protocol strings,
+    /// or compatibility data that must match another mod's existing lobby-data format. Non-empty
+    /// strings are stored verbatim. Steam lobby and member data use an empty string for missing keys,
+    /// so an empty or null value follows the SyncVar's missing-value behavior and resolves to its
+    /// configured default on other peers.
     /// It only supports <see cref="string"/> values; use <see cref="JsonSyncSerializer"/>
     /// for typed objects, primitives, collections, and general-purpose SyncVars.
     /// </remarks>
     public sealed class RawStringSyncSerializer : ISyncSerializer
     {
-        private const string ReservedPrefix = "\uE000SteamNetworkLib.RawString:";
-        private const string EmptyStringToken = ReservedPrefix + "Empty";
-        private const string EscapedRawStringToken = ReservedPrefix + "Escaped:";
-
         /// <inheritdoc />
         public string Serialize<T>(T value)
         {
             EnsureStringType(typeof(T));
-            var raw = value as string;
-            if (string.IsNullOrEmpty(raw))
-            {
-                return EmptyStringToken;
-            }
-
-            return raw.StartsWith(ReservedPrefix, StringComparison.Ordinal)
-                ? EscapedRawStringToken + raw
-                : raw;
+            return value as string ?? string.Empty;
         }
 
         /// <inheritdoc />
         public T Deserialize<T>(string data)
         {
             EnsureStringType(typeof(T));
-            if (data == EmptyStringToken)
-            {
-                return (T)(object)string.Empty;
-            }
-
-            if (data != null && data.StartsWith(EscapedRawStringToken, StringComparison.Ordinal))
-            {
-                return (T)(object)data.Substring(EscapedRawStringToken.Length);
-            }
-
             return (T)(object)(data ?? string.Empty);
         }
 

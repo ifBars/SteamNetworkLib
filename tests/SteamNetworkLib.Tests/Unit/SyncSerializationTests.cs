@@ -436,19 +436,19 @@ namespace SteamNetworkLib.Tests.Unit
         }
 
         [Fact]
-        public void RawStringSyncSerializer_EmptyString_RoundTripsThroughNonEmptySentinel()
+        public void RawStringSyncSerializer_EmptyString_RemainsEmpty()
         {
             var serializer = new RawStringSyncSerializer();
 
             var serialized = serializer.Serialize("");
             var deserialized = serializer.Deserialize<string>(serialized);
 
-            serialized.Should().NotBeEmpty("Steam lobby/member data APIs use empty strings for missing keys");
+            serialized.Should().BeEmpty();
             deserialized.Should().BeEmpty();
         }
 
         [Fact]
-        public void RawStringSyncSerializer_ReservedPrefix_RoundTripsAsUserData()
+        public void RawStringSyncSerializer_PreviouslyReservedPrefix_RemainsVerbatim()
         {
             var serializer = new RawStringSyncSerializer();
             var raw = "\uE000SteamNetworkLib.RawString:Empty";
@@ -456,7 +456,7 @@ namespace SteamNetworkLib.Tests.Unit
             var serialized = serializer.Serialize(raw);
             var deserialized = serializer.Deserialize<string>(serialized);
 
-            serialized.Should().NotBe(raw, "reserved serializer tokens must be escaped before storage");
+            serialized.Should().Be(raw);
             deserialized.Should().Be(raw);
         }
 
@@ -468,7 +468,17 @@ namespace SteamNetworkLib.Tests.Unit
             var serialized = serializer.Serialize<string?>(null);
             var deserialized = serializer.Deserialize<string>(serialized);
 
-            serialized.Should().NotBeEmpty();
+            serialized.Should().BeEmpty();
+            deserialized.Should().BeEmpty();
+        }
+
+        [Fact]
+        public void RawStringSyncSerializer_NullSerializedData_DeserializesAsEmptyString()
+        {
+            var serializer = new RawStringSyncSerializer();
+
+            var deserialized = serializer.Deserialize<string>(null!);
+
             deserialized.Should().BeEmpty();
         }
 

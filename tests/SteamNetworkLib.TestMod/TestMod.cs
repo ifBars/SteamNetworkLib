@@ -113,6 +113,10 @@ namespace SteamNetworkLib.TestMod
         private const string MemberDataKey = "snl.realgame.member.role";
         private const string HostSyncKey = "snl.realgame.host.round";
         private const string ClientSyncKey = "snl.realgame.client.ready";
+        private const string RawStringSyncKey = "snl.realgame.host.raw";
+        private const string RawStringLiteralAckKey = "snl.realgame.client.raw-literal-seen";
+        private const string RawStringEmptyAckKey = "snl.realgame.client.raw-empty-seen";
+        private const string RawStringPayload = "\uE000SteamNetworkLib.RawString:Empty|stock|pseudo|12|420";
         private const int LargePayloadSize = 70 * 1024;
         private const int ModelFilePayloadSize = 6 * 1024;
         private const int ModelStreamPayloadSize = 2048;
@@ -276,6 +280,9 @@ namespace SteamNetworkLib.TestMod
             yield return RunHostSyncVars(clientId);
             if (_failed) yield break;
 
+            yield return RunHostRawStringSyncVar(clientId);
+            if (_failed) yield break;
+
             yield return RunHostLargeTransfer(clientId);
             if (_failed) yield break;
 
@@ -314,6 +321,9 @@ namespace SteamNetworkLib.TestMod
             if (_failed) yield break;
 
             yield return RunClientSyncVars(hostId);
+            if (_failed) yield break;
+
+            yield return RunClientRawStringSyncVar();
             if (_failed) yield break;
 
             yield return RunClientLargeTransferAck(hostId);
@@ -788,6 +798,75 @@ namespace SteamNetworkLib.TestMod
 
             hostRound.Dispose();
             readiness.Dispose();
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunHostRawStringSyncVar(CSteamID clientId)
+        {
+            const string phase = "syncvars.raw-string";
+            var options = new NetworkSyncOptions
+            {
+                Serializer = new RawStringSyncSerializer()
+            };
+            var rawState = _client!.CreateHostSyncVar(RawStringSyncKey, string.Empty, options);
+
+            rawState.Value = RawStringPayload;
+
+            yield return WaitFor(
+                () => _client.GetLobbyData(RawStringSyncKey) == RawStringPayload &&
+                      _client.GetPlayerData(clientId, RawStringLiteralAckKey) == "seen",
+                30f,
+                phase,
+                "Client did not observe the verbatim raw string payload");
+
+            if (!_failed)
+            {
+                rawState.Value = string.Empty;
+                yield return WaitFor(
+                    () => string.IsNullOrEmpty(_client.GetLobbyData(RawStringSyncKey)) &&
+                          _client.GetPlayerData(clientId, RawStringEmptyAckKey) == "seen",
+                    30f,
+                    phase,
+                    "Client did not resolve the empty raw string to its empty default");
+            }
+
+            rawState.Dispose();
+            if (!_failed) MarkPassed(phase);
+        }
+
+        private IEnumerator RunClientRawStringSyncVar()
+        {
+            const string phase = "syncvars.raw-string";
+            var options = new NetworkSyncOptions
+            {
+                Serializer = new RawStringSyncSerializer()
+            };
+            var rawState = _client!.CreateHostSyncVar(RawStringSyncKey, string.Empty, options);
+
+            yield return WaitFor(
+                () => rawState.Value == RawStringPayload &&
+                      _client.GetLobbyData(RawStringSyncKey) == RawStringPayload,
+                30f,
+                phase,
+                "Raw string payload was changed while crossing Steam lobby data");
+
+            if (!_failed)
+            {
+                _client.SetMyData(RawStringLiteralAckKey, "seen");
+                yield return WaitFor(
+                    () => rawState.Value == string.Empty &&
+                          string.IsNullOrEmpty(_client.GetLobbyData(RawStringSyncKey)),
+                    30f,
+                    phase,
+                    "Empty raw string did not resolve to the SyncVar default");
+            }
+
+            if (!_failed)
+            {
+                _client.SetMyData(RawStringEmptyAckKey, "seen");
+            }
+
+            rawState.Dispose();
             if (!_failed) MarkPassed(phase);
         }
 
